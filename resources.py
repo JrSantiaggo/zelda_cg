@@ -50,16 +50,42 @@ def loadShaders(vertexShaderFileName, fragmentShaderFileName):
 
 def calculateBillboardMatrix(objectPosition, cameraPosition):
     """
-    Calcula a matriz de billboarding (sprite sempre voltado para a câmera).
-    Utiliza billboarding cilíndrico: rotaciona apenas no eixo Y (sprite fica em pé).
+    Calcula a matriz de billboarding cilíndrico para sprite 2D.
+    
+    Billboarding cilíndrico:
+    - Rotaciona o sprite apenas no eixo Y (vertical)
+    - Mantém o sprite sempre "em pé" (não inclina nos eixos X ou Z)
+    - Faz o sprite olhar para a câmera no plano horizontal (XZ)
+    
+    Args:
+        objectPosition: Posição do objeto (glm.vec3) no mundo
+        cameraPosition: Posição da câmera (glm.vec3) no mundo
+    
+    Returns:
+        Matriz de modelo (glm.mat4) com transformações de billboarding
     """
+    # Calcular direção da câmera para o objeto no plano horizontal (XZ)
+    # Ignorar componente Y para billboarding cilíndrico (sprite sempre em pé)
     dirX = cameraPosition.x - objectPosition.x
     dirZ = cameraPosition.z - objectPosition.z
     
+    # Calcular ângulo de rotação no eixo Y usando atan2
+    # atan2(dirX, dirZ) retorna o ângulo em radianos
+    # ângulo = 0 quando câmera está em +Z (em frente ao objeto)
+    # ângulo = π/2 quando câmera está em +X (à direita do objeto)
     angle = math.atan2(dirX, dirZ)
+    
+    # Construir matriz de modelo com transformações na ordem correta:
+    # 1. Transladar para a posição do objeto no mundo
+    # 2. Rotacionar no eixo Y para que o sprite olhe para a câmera
+    # A ordem importa: aplicar rotação DEPOIS da translação
+    # Isso garante que o sprite rotacione em torno de sua própria posição
     
     modelMatrix = glm.mat4(1.0)
     modelMatrix = glm.translate(modelMatrix, objectPosition)
-    modelMatrix = glm.rotate(modelMatrix, angle, glm.vec3(0, 1, 0))
+    modelMatrix = glm.rotate(modelMatrix, angle, glm.vec3(0.0, 1.0, 0.0))
+    
+    # Nota: Não aplicar escala aqui - a escala do sprite já está na geometria
+    # (via OBJECT_SIZE_X e OBJECT_SIZE_Y na createSpriteMesh)
     
     return modelMatrix

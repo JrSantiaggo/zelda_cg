@@ -182,6 +182,7 @@ def loadOBJ(fileName):
                     # Formato: f v1/vt1/vn1 v2/vt2/vn2 v3/vt3/vn3
                     # ou: f v1 v2 v3 (sem textura/normal)
                     # ou: f v1/vt1 v2/vt2 v3/vt3 (com textura, sem normal)
+                    # ou: f v1//vn1 v2//vn2 v3//vn3 (sem textura, com normal)
                     
                     face_verts = []
                     for i in range(1, len(parts)):
@@ -196,7 +197,15 @@ def loadOBJ(fileName):
                             except (ValueError, IndexError):
                                 vt_idx = None
                         
-                        face_verts.append((v_idx, vt_idx))
+                        # Normal do vértice (pode não existir)
+                        vn_idx = None
+                        if len(vertex_data) > 2 and vertex_data[2]:
+                            try:
+                                vn_idx = int(vertex_data[2]) - 1
+                            except (ValueError, IndexError):
+                                vn_idx = None
+                        
+                        face_verts.append((v_idx, vt_idx, vn_idx))
                     
                     # Triangulação: se a face tem mais de 3 vértices, dividir em triângulos
                     triangulated_faces = []
@@ -242,16 +251,27 @@ def loadOBJ(fileName):
         if not face_indices:
             continue
         
-        # Construir lista final de vértices com posição e textura para este material
+        # Construir lista final de vértices com posição, normal e textura para este material
+        # Formato: [x, y, z, nx, ny, nz, u, v]
         final_vertices = []
         for face in face_indices:
-            for v_idx, vt_idx in face:
+            for v_idx, vt_idx, vn_idx in face:
                 # Posição
                 if v_idx >= 0 and v_idx < len(vertex_positions):
                     pos = vertex_positions[v_idx]
                     pos_list = [float(pos[0]), float(pos[1]), float(pos[2])]
                 else:
                     pos_list = [0.0, 0.0, 0.0]
+                
+                # Normal (usar do OBJ se disponível, senão calcular ou usar padrão)
+                if vn_idx is not None and vn_idx >= 0 and vn_idx < len(vertex_normals):
+                    # Usar normal do arquivo OBJ
+                    norm = vertex_normals[vn_idx]
+                    norm_list = [float(norm[0]), float(norm[1]), float(norm[2])]
+                else:
+                    # Normal padrão se não houver no arquivo (apontando para cima)
+                    # Será calculada durante o processamento se necessário
+                    norm_list = [0.0, 1.0, 0.0]  # Padrão: aponta para cima
                 
                 # Textura (usar (0,0) se não houver)
                 if vt_idx is not None and vt_idx >= 0 and vt_idx < len(vertex_textures):
@@ -260,8 +280,12 @@ def loadOBJ(fileName):
                 else:
                     uv_list = [0.0, 0.0]
                 
-                # Adicionar vértice: [x, y, z, u, v]
-                final_vertices.append([pos_list[0], pos_list[1], pos_list[2], uv_list[0], uv_list[1]])
+                # Adicionar vértice: [x, y, z, nx, ny, nz, u, v]
+                final_vertices.append([
+                    pos_list[0], pos_list[1], pos_list[2],
+                    norm_list[0], norm_list[1], norm_list[2],
+                    uv_list[0], uv_list[1]
+                ])
         
         if not final_vertices:
             print(f"AVISO: Material '{material_name}' não contém vértices válidos")
@@ -278,12 +302,18 @@ def loadOBJ(fileName):
         glBindBuffer(GL_ARRAY_BUFFER, vboId)
         glBufferData(GL_ARRAY_BUFFER, vertices_array.nbytes, vertices_array, GL_STATIC_DRAW)
         
-        # Atributos: posição (0) e textura (1)
-        glEnableVertexAttribArray(0)
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*4, ctypes.c_void_p(0))
+        # Atributos: posição (0), normal (2) e textura (1)
+        # Formato: [x, y, z, nx, ny, nz, u, v] - 8 floats = 32 bytes
+        stride = 8 * 4  # 8 floats * 4 bytes cada
         
-        glEnableVertexAttribArray(1)
-        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5*4, ctypes.c_void_p(3*4))
+        glEnableVertexAttribArray(0)  # Posição
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(0))
+        
+        glEnableVertexAttribArray(1)  # Textura (coordenada UV)
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(6*4))  # u, v após normal
+        
+        glEnableVertexAttribArray(2)  # Normal
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride, ctypes.c_void_p(3*4))  # nx, ny, nz após posição
         
         glBindVertexArray(0)
         

@@ -13,22 +13,32 @@ import world_config
 # Variáveis globais do jogador
 playerMesh = 0
 playerTexture = 0
+playerIdleTexture = 0
 position = glm.vec3(*config.INITIAL_POSITION)
+
+# Variáveis de animação
+animation_time = 0.0
+current_direction = 3  # Direção inicial: frente (linha 3)
+last_direction = 3  # Direção anterior (para detectar mudanças de direção)
+is_moving = False
+last_update_time = 0.0
+was_moving = False  # Estado anterior de movimento (para detectar transições)
 
 
 def init(geometry_module):
     """
-    Inicializa recursos do jogador (malha e textura).
+    Inicializa recursos do jogador (malha e texturas).
     
     Args:
         geometry_module: Módulo geometry para criar malhas
     """
-    global playerMesh, playerTexture
+    global playerMesh, playerTexture, playerIdleTexture
     import os
     
     here = os.path.dirname(os.path.abspath(__file__))
     playerMesh = geometry_module.createSpriteMesh()
     playerTexture = resources.loadTexture(os.path.join(here, config.TEXTURE_FILE))
+    playerIdleTexture = resources.loadTexture(os.path.join(here, config.IDLE_TEXTURE_FILE))
 
 
 def update(window):
@@ -36,7 +46,7 @@ def update(window):
     Atualiza a lógica do jogador (movimentação e input).
     Inclui verificação de colisão com tiles sólidos do mapa.
     """
-    global position
+    global position, animation_time, current_direction, is_moving
     
     moveX = 0.0
     moveZ = 0.0
@@ -59,13 +69,37 @@ def update(window):
         moveX /= length
         moveZ /= length
         
+        # Determinar direção do movimento para animação
+        # Linha 0 → jogador andando para trás (Z positivo) - DOWN/baixo
+        # Linha 1 → jogador andando para esquerda (X negativo) - LEFT/esquerda
+        # Linha 2 → jogador andando para direita (X positivo) - RIGHT/direita
+        # Linha 3 → jogador andando para frente (Z negativo) - UP/cima
+        
+        # Priorizar movimento vertical (Z) sobre horizontal (X)
+        if abs(moveZ) > abs(moveX):
+            # INVERTIDO: sprite sheet tem cima na linha 0 e baixo na linha 3
+            if moveZ > 0:
+                current_direction = 3  # Trás (DOWN/baixo) - era 0, agora 3
+            else:
+                current_direction = 0  # Frente (UP/cima) - era 3, agora 0
+        else:
+            # INVERTIDO: sprite sheet tem direita na linha 1 e esquerda na linha 2
+            if moveX < 0:
+                current_direction = 2  # Esquerda (LEFT) - era 1, agora 2
+            else:
+                current_direction = 1  # Direita (RIGHT) - era 2, agora 1
+        
+        is_moving = True
+        
         # Calcular posição alvo
         target_x = position.x + moveX * config.MOVEMENT_SPEED
         target_z = position.z + moveZ * config.MOVEMENT_SPEED
         
         # Verificar colisão com tiles sólidos
         # Usar raio do jogador baseado no tamanho do sprite (metade da largura)
-        player_radius = config.OBJECT_SIZE_X
+        # OBJECT_SIZE_X é a metade da largura (0.5 tile), mas está definido como 1.0 incorretamente
+        # Para colisão, usar 0.5 como raio (metade de 1.0 tile de largura)
+        player_radius = 0.5
         
         # Calcular altura atual do jogador
         current_ramp_height = map.getRampHeightAt(position.x, position.z)
@@ -118,14 +152,13 @@ def update(window):
             return  # Sair da função sem mover
         
         # Se chegou aqui, pode tentar mover (está em rampa ou diferença de altura é aceitável)
-        if True:  # Sempre executar o bloco de movimento
-            # Verificar colisão na posição alvo (passando altura do jogador)
-            if not map.checkTileCollision(target_x, target_z, player_radius, target_y):
-                # Sem colisão, atualizar posição
-                position.x = target_x
-                position.z = target_z
-            else:
-                # Tentar movimento apenas em X ou apenas em Z (slide ao longo das paredes)
+        # Verificar colisão na posição alvo (passando altura do jogador)
+        if not map.checkTileCollision(target_x, target_z, player_radius, target_y):
+            # Sem colisão, atualizar posição
+            position.x = target_x
+            position.z = target_z
+        else:
+            # Tentar movimento apenas em X ou apenas em Z (slide ao longo das paredes)
                 # Calcular altura para movimento apenas em X
                 x_ramp_height = map.getRampHeightAt(target_x, position.z)
                 if x_ramp_height is not None:
@@ -168,6 +201,9 @@ def update(window):
                             if not map.checkTileCollision(position.x, target_z, player_radius, z_y):
                                 position.z = target_z
                         # Se ambos causarem colisão, não mover (jogador bloqueado)
+    else:
+        # Jogador não está se movendo
+        is_moving = False
     
     # ===== AJUSTAR ALTURA Y BASEADO EM RAMPAS E PLATAFORMAS =====
     # Verificar se o jogador está sobre uma rampa
@@ -192,16 +228,113 @@ def update(window):
         else:
             # Tile não encontrado ou inválido - usar altura padrão do chão
             position.y = world_config.GROUND_LEVEL
+    
+    # ===== ATUALIZAR ANIMAÇÃO =====
+    # Atualizar tempo de animação baseado no estado de movimento
+    global last_update_time, was_moving, last_direction
+    current_time = glfw.get_time()
+    
+    if last_update_time == 0.0:
+        last_update_time = current_time
+    
+    delta_time = current_time - last_update_time
+    last_update_time = current_time
+    
+    # Detectar transição de movimento para idle ou vice-versa
+    if was_moving != is_moving:
+        # Transição detectada - resetar animation_time para 0
+        animation_time = 0.0
+    
+    # Detectar mudança de direção e resetar animation_time se necessário
+    if last_direction != current_direction:
+        animation_time = 0.0
+    
+    was_moving = is_moving
+    last_direction = current_direction
+    
+    if is_moving:
+        # Animação de movimento: 8 frames por direção
+        animation_time += delta_time * config.ANIMATION_SPEED
+        # Loop da animação (0 a 8 frames)
+        animation_time = animation_time % config.SPRITE_SHEET_COLS
+    else:
+        # Animação idle: continuar animando quando parado
+        # Velocidade de animação idle (um pouco mais lenta que movimento)
+        idle_animation_speed = config.ANIMATION_SPEED * 0.6  # 60% da velocidade de movimento
+        animation_time += delta_time * idle_animation_speed
+        # Número de colunas varia por direção na textura idle:
+        # Linha 0 (cima/W): 4 colunas
+        # Linhas 1-3 (direita, esquerda, baixo): 12 colunas cada
+        if current_direction == 0:
+            idle_cols = 4   # Linha 0 (cima/W): 4 colunas
+        else:
+            idle_cols = 12  # Linhas 1-3 (direita, esquerda, baixo): 12 colunas
+        # Loop da animação idle (garantir que está no range 0 a idle_cols)
+        animation_time = animation_time % idle_cols
 
 
 def render(modelMatrix_loc, cameraPos):
     """
     Renderiza o jogador na cena.
     """
-    glBindVertexArray(playerMesh[0])
-    glBindTexture(GL_TEXTURE_2D, playerTexture)
+    global animation_time, current_direction, is_moving
     
-    # Matriz de modelo com billboarding (sprite olha para câmera)
+    glBindVertexArray(playerMesh[0])
+    
+    # Selecionar textura apropriada baseado no estado de movimento
+    if is_moving:
+        # Usar textura de movimento
+        glBindTexture(GL_TEXTURE_2D, playerTexture)
+        sprite_cols = config.SPRITE_SHEET_COLS  # 8 colunas para movimento
+        animation_cols = sprite_cols  # Mesmo valor para movimento
+    else:
+        # Usar textura idle
+        glBindTexture(GL_TEXTURE_2D, playerIdleTexture)
+        # IMPORTANTE: A textura física tem 12 colunas em TODAS as linhas
+        # Mas a linha 0 (cima/W) só usa as primeiras 4 colunas para animação
+        # Linhas 1-3 (direita, esquerda, baixo) usam todas as 12 colunas
+        sprite_cols = 12  # Número total de colunas na textura física (sempre 12)
+        if current_direction == 0:
+            animation_cols = 4   # Linha 0 (cima/W): 4 frames de animação
+        else:
+            animation_cols = 12  # Linhas 1-3: 12 frames de animação
+        
+        # Garantir que animation_time está normalizado para esta direção específica
+        # Importante: normalizar ANTES de calcular o frame para evitar valores incorretos
+        animation_time = animation_time % animation_cols
+    
+    # Calcular frame atual da animação
+    # Usar floor para garantir valor inteiro correto
+    current_frame = int(animation_time) % animation_cols
+    
+    # Calcular offset do sprite sheet
+    # spriteOffset = (coluna * spriteWidth, linha * spriteHeight)
+    sprite_width = 1.0 / sprite_cols
+    sprite_height = 1.0 / config.SPRITE_SHEET_ROWS
+    
+    offset_x = current_frame * sprite_width
+    offset_y = current_direction * sprite_height
+    
+    # Obter shader ID para definir uniforms
+    shader_id = glGetInteger(GL_CURRENT_PROGRAM)
+    sprite_offset_loc = glGetUniformLocation(shader_id, 'spriteOffset')
+    sprite_size_loc = glGetUniformLocation(shader_id, 'spriteSize')
+    is_sprite_loc = glGetUniformLocation(shader_id, 'isSprite')
+    
+    # Definir uniforms do sprite sheet
+    if sprite_offset_loc != -1:
+        glUniform2f(sprite_offset_loc, offset_x, offset_y)
+    if sprite_size_loc != -1:
+        glUniform2f(sprite_size_loc, sprite_width, sprite_height)
+    
+    # Marcar como sprite 2D (não recebe iluminação ambiente)
+    if is_sprite_loc != -1:
+        glUniform1i(is_sprite_loc, 1)  # true = sprite 2D (sem iluminação)
+    
+    # Matriz de modelo com billboarding cilíndrico
+    # O sprite rotaciona apenas no eixo Y para sempre olhar para a câmera
+    # no plano horizontal (XZ), mantendo-se sempre "em pé"
+    # Não rotaciona nos eixos X ou Z (billboarding cilíndrico vs esférico)
     modelMatrix = resources.calculateBillboardMatrix(position, cameraPos)
     glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(modelMatrix))
     glDrawArrays(GL_TRIANGLES, 0, playerMesh[1])

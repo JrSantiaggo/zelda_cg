@@ -48,19 +48,53 @@ def createPropsMap():
     Retorna:
         Lista 2D (matriz) com IDs de props (inteiros)
     """
-    # Matriz numérica de props (mesmo tamanho do mapa de tiles)
-    # Apenas 2 árvores no mapa
+    # Matriz numérica de props (40x40 - mesmo tamanho do mapa de tiles)
+    # Mapa 40x40: de (-20, -20) a (19, 19) no mundo
+    # Apenas 2 árvores no mapa (mantendo padrão original: uma no topo, uma embaixo)
     props_map = [
-        [0, 0, 0, 0, -1, 0, 0, 0, 0, 0],   # z=0 (mundo z=-5) - árvore 1 (plataforma elevada)
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=1 (mundo z=-4) - plataforma
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=2 (mundo z=-3) - plataforma
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=3 (mundo z=-2) - plataforma
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=4 (mundo z=-1) - plataforma
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=5 (mundo z=0) - rampas
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=6 (mundo z=1) - piso plano
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=7 (mundo z=2) - piso plano
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],    # z=8 (mundo z=3) - piso plano
-        [0, 0, 0, 0, -1, 0, 0, 0, 0, 0],   # z=9 (mundo z=4) - árvore 2 (piso plano)
+        # Zona superior (z=0-19): plataforma elevada
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=0
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=1
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=2
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=3
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=4
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=5
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=6
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=7
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=8
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=9
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=10
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=11
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=12
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=13
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=14
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=15
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=16
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=17
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=18
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=19
+        # Zona central (z=20-25): rampas de transição
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=20
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=21
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=22
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=23
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=24
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=25
+        # Zona inferior (z=26-39): piso plano
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=26
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=27
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=28
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=29
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=30
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=31
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=32
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=33
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=34
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=35
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=36
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=37
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=38
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],  # z=39 - árvore 2
     ]
     
     return props_map
@@ -88,24 +122,58 @@ def createTileMap():
     Retorna:
         Lista 2D (matriz) com tipos de tiles (strings)
     """
-    # Matriz numérica do mapa (10x10)
+    # Matriz numérica do mapa (40x40)
     # Layout: piso baixo embaixo, rampas no meio (Norte), plataforma elevada em cima
+    # Mapa 40x40: de (-20, -20) a (19, 19) no mundo
     # 
-    # Estrutura:
-    # - Zona inferior (z=6-9): piso plano (1)
-    # - Zona central (z=5): rampas subindo para Norte (8)
-    # - Zona superior (z=0-4): plataforma elevada (5)
+    # Estrutura expandida baseada no padrão 10x10:
+    # - Zona superior (z=0-19): plataforma elevada (5)
+    # - Zona central (z=20-25): rampas subindo para Norte (10) com bordas
+    # - Zona inferior (z=26-39): piso plano (1)
     map_numeric = [
-        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=0 (mundo z=-5) - plataforma elevada (parte de cima)
-        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=1 (mundo z=-4) - plataforma elevada
-        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=2 (mundo z=-3) - plataforma elevada
-        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=3 (mundo z=-2) - plataforma elevada
-        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=4 (mundo z=-1) - plataforma elevada
-        [1, 5, 10, 10, 10, 10, 10, 10, 5, 1],  # z=5 (mundo z=0) - rampas subindo para Norte (Z-)
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=6 (mundo z=1) - piso plano (parte de baixo)
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=7 (mundo z=2) - piso plano
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=8 (mundo z=3) - piso plano
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=9 (mundo z=4) - piso plano
+        # Zona superior (z=0-19): plataforma elevada (5)
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=0
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=1
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=2
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=3
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=4
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=5
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=6
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=7
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=8
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=9
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=10
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=11
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=12
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=13
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=14
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=15
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=16
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=17
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=18
+        [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],  # z=19
+        # Zona central (z=20-25): rampas (10) com bordas de plataforma (5) e piso (1)
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 10, 10, 10, 10, 10, 10, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=20
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=21
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=22
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=23
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=24
+        [1, 5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 1],  # z=25
+        # Zona inferior (z=26-39): piso plano (1)
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=26
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=27
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=28
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=29
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=30
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=31
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=32
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=33
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=34
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=35
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=36
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=37
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=38
+        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],  # z=39
     ]
     
     # Converter matriz numérica para matriz de tipos de tile
@@ -237,15 +305,15 @@ def convertTileMapToGeometry(tileMap, startX=0, startZ=0):
     return platforms_list, ramps_list
 
 
-def getTileAt(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
+def getTileAt(world_x, world_z, map_offset_x=-20, map_offset_z=-20):
     """
     Obtém o tipo de tile na posição do mundo especificada.
     
     Args:
         world_x: Posição X no mundo
         world_z: Posição Z no mundo
-        map_offset_x: Offset X do mapa (default: -5 para mapa 10x10 centrado)
-        map_offset_z: Offset Z do mapa (default: -5 para mapa 10x10 centrado)
+        map_offset_x: Offset X do mapa (default: -20 para mapa 40x40 centrado)
+        map_offset_z: Offset Z do mapa (default: -20 para mapa 40x40 centrado)
     
     Returns:
         Tipo do tile (string) ou None se posição fora do mapa
@@ -261,15 +329,15 @@ def getTileAt(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
     return tileMap[map_z][map_x]
 
 
-def getTilePropertiesAt(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
+def getTilePropertiesAt(world_x, world_z, map_offset_x=-20, map_offset_z=-20):
     """
     Obtém as propriedades completas do tile na posição do mundo especificada.
     
     Args:
         world_x: Posição X no mundo
         world_z: Posição Z no mundo
-        map_offset_x: Offset X do mapa (default: -5 para mapa 10x10 centrado)
-        map_offset_z: Offset Z do mapa (default: -5 para mapa 10x10 centrado)
+        map_offset_x: Offset X do mapa (default: -20 para mapa 40x40 centrado)
+        map_offset_z: Offset Z do mapa (default: -20 para mapa 40x40 centrado)
     
     Returns:
         Dicionário com propriedades do tile (height, texture, is_solid, etc) ou None
@@ -300,15 +368,15 @@ def setRampData(map_x, map_z, start_height, end_height, direction):
     }
 
 
-def getRampData(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
+def getRampData(world_x, world_z, map_offset_x=-20, map_offset_z=-20):
     """
     Obtém propriedades de uma rampa na posição do mundo especificada.
     
     Args:
         world_x: Posição X no mundo
         world_z: Posição Z no mundo
-        map_offset_x: Offset X do mapa (default: -5 para mapa 10x10 centrado)
-        map_offset_z: Offset Z do mapa (default: -5 para mapa 10x10 centrado)
+        map_offset_x: Offset X do mapa (default: -20 para mapa 40x40 centrado)
+        map_offset_z: Offset Z do mapa (default: -20 para mapa 40x40 centrado)
     
     Returns:
         Dicionário com propriedades da rampa (start_height, end_height, direction) ou None
@@ -320,7 +388,7 @@ def getRampData(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
     return rampData.get((map_x, map_z), None)
 
 
-def getRampHeightAt(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
+def getRampHeightAt(world_x, world_z, map_offset_x=-20, map_offset_z=-20):
     """
     Calcula a altura Y baseada na posição do jogador sobre uma rampa.
     A altura varia gradualmente de start_height para end_height baseado na posição dentro do tile.
@@ -328,8 +396,8 @@ def getRampHeightAt(world_x, world_z, map_offset_x=-5, map_offset_z=-5):
     Args:
         world_x: Posição X no mundo
         world_z: Posição Z no mundo
-        map_offset_x: Offset X do mapa (default: -5 para mapa 10x10 centrado)
-        map_offset_z: Offset Z do mapa (default: -5 para mapa 10x10 centrado)
+        map_offset_x: Offset X do mapa (default: -20 para mapa 40x40 centrado)
+        map_offset_z: Offset Z do mapa (default: -20 para mapa 40x40 centrado)
     
     Returns:
         Altura Y calculada (float) ou None se não estiver sobre uma rampa
@@ -429,7 +497,7 @@ def getMapSize():
     return (len(tileMap[0]), len(tileMap))
 
 
-def checkTileCollision(world_x, world_z, player_radius=0.5, player_y=None, map_offset_x=-5, map_offset_z=-5):
+def checkTileCollision(world_x, world_z, player_radius=0.5, player_y=None, map_offset_x=-20, map_offset_z=-20):
     """
     Verifica se a posição (world_x, world_z) colide com um tile sólido.
     Usa AABB (Axis-Aligned Bounding Box) simples baseado em tiles.
@@ -440,8 +508,8 @@ def checkTileCollision(world_x, world_z, player_radius=0.5, player_y=None, map_o
         world_z: Posição Z no mundo
         player_radius: Raio do jogador para verificação (default: 0.5 = metade do tile)
         player_y: Altura Y do jogador (opcional, usado para verificar se pode caminhar sobre plataformas)
-        map_offset_x: Offset X do mapa (default: -5 para mapa 10x10 centrado)
-        map_offset_z: Offset Z do mapa (default: -5 para mapa 10x10 centrado)
+        map_offset_x: Offset X do mapa (default: -20 para mapa 40x40 centrado)
+        map_offset_z: Offset Z do mapa (default: -20 para mapa 40x40 centrado)
     
     Returns:
         True se há colisão com tile sólido, False caso contrário
@@ -542,27 +610,29 @@ def init(geometry_module):
     tileMap = createTileMap()
     
     # ===== DEFINIR PROPRIEDADES DE RAMPAS =====
-    # Rampas na linha z=5 conectam piso baixo (altura 0.0) à plataforma elevada (altura 1.0)
+    # Rampas nas linhas z=20-25 conectam piso baixo (altura 0.0) à plataforma elevada (altura 1.0)
     # As direções são definidas diretamente na matriz (IDs 8, 9, 10, 11)
-    # Apenas definir alturas, as direções vêm da matriz
-    for x in range(2, 8):  # Rampas de x=2 até x=7 (6 rampas)
-        # Verificar se há direção definida na matriz para esta posição
-        direction_from_matrix = _rampDirectionsFromMatrix.get((x, 5))
-        if direction_from_matrix:
-            # Usar direção da matriz
-            direction = direction_from_matrix
-        else:
-            # Fallback: usar Norte como padrão
-            direction = world_config.RAMP_DIRECTION_NORTH
-        # Definir alturas e direção
-        setRampData(x, 5, 0.0, world_config.BLOCK_HEIGHT_FULL, direction)
+    # Expandido do padrão original (linha z=5) para múltiplas linhas (z=20-25)
+    for z in range(20, 26):  # Rampas nas linhas z=20 a z=25 (6 linhas)
+        for x in range(2, 38):  # Rampas de x=2 até x=37 (36 colunas de rampas)
+            # Verificar se há direção definida na matriz para esta posição
+            direction_from_matrix = _rampDirectionsFromMatrix.get((x, z))
+            if direction_from_matrix:
+                # Usar direção da matriz
+                direction = direction_from_matrix
+            else:
+                # Fallback: usar Leste (10) como padrão, baseado no padrão original
+                # Rampas são do tipo 10 (Leste) no mapa expandido
+                direction = world_config.RAMP_DIRECTION_EAST
+            # Definir alturas e direção
+            setRampData(x, z, 0.0, world_config.BLOCK_HEIGHT_FULL, direction)
     
     # ===== CONVERTER MATRIZ LÓGICA EM GEOMETRIA =====
     # Offset para centralizar o mapa na origem
-    # Mapa 10x10: de (-5, -5) a (4, 4) no mundo
-    # tileMap[0][0] deve mapear para mundo (-5, -5)
-    map_offset_x = -5
-    map_offset_z = -5  # Offset Z inicial (primeira linha da matriz = Z=-5 no mundo)
+    # Mapa 40x40: de (-20, -20) a (19, 19) no mundo
+    # tileMap[0][0] deve mapear para mundo (-20, -20)
+    map_offset_x = -20
+    map_offset_z = -20  # Offset Z inicial (primeira linha da matriz = Z=-20 no mundo)
     
     platforms, ramps = convertTileMapToGeometry(tileMap, map_offset_x, map_offset_z)
     
@@ -582,8 +652,8 @@ def init(geometry_module):
     # ===== ADICIONAR PROPS DO MAPA =====
     # Carregar props da matriz de props (sistema escalável)
     props_map = createPropsMap()
-    map_offset_x = -5
-    map_offset_z = -5
+    map_offset_x = -20
+    map_offset_z = -20
     
     # Função auxiliar para calcular altura do topo do tile
     def getTileTopHeight(world_x, world_z):

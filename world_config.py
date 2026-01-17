@@ -276,7 +276,7 @@ PROP_DEFINITIONS = {
     },
     # Adicione mais definições conforme necessário:
     # "rock": {
-    #     'model': "models/rock/rock.obj",
+    #     'model': "models/rock/Rock1.obj",
     #     'texture': None,
     #     'scale': (0.3, 0.3, 0.3),
     #     'rotation': 0.0,

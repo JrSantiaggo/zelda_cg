@@ -3,6 +3,7 @@ Módulo de renderização: função principal de renderização da cena
 """
 from OpenGL.GL import *
 import glm
+import math
 import config
 import player
 import map
@@ -41,13 +42,90 @@ def render(shaderId, resolution):
     if object_color_loc != -1:
         glUniform3f(object_color_loc, 1.0, 1.0, 1.0)  # Cor padrão branca
     
+    # Definir luz ambiente global (aplicada a todos os objetos 3D)
+    ambient_light_loc = glGetUniformLocation(shaderId, 'ambientLight')
+    if ambient_light_loc != -1:
+        glUniform3f(ambient_light_loc, *config.AMBIENT_LIGHT)  # Luz ambiente do config
+    
+    # Definir luz direcional para iluminação difusa (modelo de Lambert)
+    directional_light_dir_loc = glGetUniformLocation(shaderId, 'directionalLightDir')
+    directional_light_color_loc = glGetUniformLocation(shaderId, 'directionalLightColor')
+    if directional_light_dir_loc != -1:
+        # Normalizar direção da luz (será normalizada no shader também, mas normalizamos aqui também)
+        dir = config.DIRECTIONAL_LIGHT_DIRECTION
+        length = math.sqrt(dir[0]**2 + dir[1]**2 + dir[2]**2)
+        if length > 0:
+            normalized_dir = (dir[0]/length, dir[1]/length, dir[2]/length)
+        else:
+            normalized_dir = dir
+        glUniform3f(directional_light_dir_loc, *normalized_dir)
+    if directional_light_color_loc != -1:
+        glUniform3f(directional_light_color_loc, *config.DIRECTIONAL_LIGHT_COLOR)
+
+    
+    # Definir parâmetros de iluminação especular (modelo de Phong)
+    specular_strength_loc = glGetUniformLocation(shaderId, 'specularStrength')
+    shininess_loc = glGetUniformLocation(shaderId, 'shininess')
+    specular_color_loc = glGetUniformLocation(shaderId, 'specularColor')
+    if specular_strength_loc != -1:
+        glUniform1f(specular_strength_loc, config.SPECULAR_STRENGTH)
+    if shininess_loc != -1:
+        glUniform1f(shininess_loc, config.SPECULAR_SHININESS)
+    if specular_color_loc != -1:
+        glUniform3f(specular_color_loc, *config.SPECULAR_COLOR)
+    
+    # Definir flag isSprite (padrão: false para objetos 3D)
+    is_sprite_loc = glGetUniformLocation(shaderId, 'isSprite')
+    if is_sprite_loc != -1:
+        glUniform1i(is_sprite_loc, 0)  # Por padrão, não é sprite (objetos 3D iluminados)
+    
+    # Inicializar uniforms do sprite sheet (para objetos que não usam sprite sheet, usar textura completa)
+    sprite_offset_loc = glGetUniformLocation(shaderId, 'spriteOffset')
+    sprite_size_loc = glGetUniformLocation(shaderId, 'spriteSize')
+    if sprite_offset_loc != -1:
+        glUniform2f(sprite_offset_loc, 0.0, 0.0)  # Offset padrão: (0,0) = usar textura completa
+    if sprite_size_loc != -1:
+        glUniform2f(sprite_size_loc, 1.0, 1.0)  # Tamanho padrão: (1,1) = usar textura completa
+    
+    # ===== CALCULAR POSIÇÃO DA CÂMERA SEGUINDO O JOGADOR =====
+    # Obter posição atual do jogador
+    playerPos = player.getPosition()
+    
+    # Offset fixo da câmera relativo ao jogador
+    # Mantém a mesma distância e ângulo que config.CAMERA_POSITION tinha em relação à origem
+    # Offset atual: (0.0, 12.0, 8.0) em relação à origem, agora será em relação ao jogador
+    camera_offset = glm.vec3(*config.CAMERA_POSITION)  # Offset fixo (0.0, 12.0, 8.0)
+    
+    # Calcular posição da câmera: posição do jogador + offset fixo
+    # Como o offset original era (0, 12, 8) em relação à origem, usamos ele diretamente
+    # mas aplicamos em relação ao jogador no plano XZ (mantendo Y fixo da câmera)
+    cameraPos = glm.vec3(
+        playerPos.x + camera_offset.x,  # X do jogador + offset X (0.0)
+        camera_offset.y,                 # Y fixo da câmera (12.0) - altura da câmera
+        playerPos.z + camera_offset.z   # Z do jogador + offset Z (8.0)
+    )
+    
+    # Calcular target da câmera: câmera sempre olha para o jogador
+    # O target é a posição do jogador (mantendo altura Y do jogador para olhar corretamente)
+    cameraTarget = glm.vec3(
+        playerPos.x,                     # X do jogador
+        playerPos.y,                     # Y do jogador (para olhar na altura correta)
+        playerPos.z                      # Z do jogador
+    )
+    
     # Matriz de visão (View Matrix) - compartilhada por todos os objetos
+    # Câmera segue o jogador mantendo offset fixo
     viewMatrix = glm.lookAt(
-        glm.vec3(*config.CAMERA_POSITION),
-        glm.vec3(*config.CAMERA_TARGET),
+        cameraPos,                       # Posição da câmera (seguindo jogador com offset)
+        cameraTarget,                    # Target da câmera (jogador)
         glm.vec3(*config.CAMERA_UP)
     )
     glUniformMatrix4fv(viewMatrix_loc, 1, GL_FALSE, glm.value_ptr(viewMatrix))
+    
+    # Passar posição da câmera para o shader (necessária para cálculo especular)
+    camera_pos_loc = glGetUniformLocation(shaderId, 'cameraPos')
+    if camera_pos_loc != -1:
+        glUniform3f(camera_pos_loc, cameraPos.x, cameraPos.y, cameraPos.z)
     
     # Matriz de projeção (Projection Matrix) - compartilhada por todos os objetos
     aspectRatio = resolution[0] / resolution[1]
@@ -60,11 +138,30 @@ def render(shaderId, resolution):
     glUniformMatrix4fv(projectionMatrix_loc, 1, GL_FALSE, glm.value_ptr(projectionMatrix))
 
     # Renderizar elementos do cenário
-    cameraPos = glm.vec3(*config.CAMERA_POSITION)
+    # cameraPos já foi calculado acima
+    
+    # Garantir que os uniforms do sprite sheet estão resetados antes de renderizar tiles
+    if sprite_offset_loc != -1:
+        glUniform2f(sprite_offset_loc, 0.0, 0.0)  # Resetar offset
+    if sprite_size_loc != -1:
+        glUniform2f(sprite_size_loc, 1.0, 1.0)  # Resetar tamanho
+    
+    # Garantir que isSprite está definido como false para objetos 3D do cenário
+    if is_sprite_loc != -1:
+        glUniform1i(is_sprite_loc, 0)  # Objetos 3D recebem iluminação ambiente
+    
     map.renderPlatforms(modelMatrix_loc)
     map.renderRamps(modelMatrix_loc)
     props.render(modelMatrix_loc)  # Renderizar props (objetos 3D decorativos)
+    
+    # Renderizar jogador (que usa sprite sheet - não recebe iluminação ambiente)
     player.render(modelMatrix_loc, cameraPos)
+    
+    # Resetar uniforms do sprite sheet após renderizar jogador (para não afetar próximos objetos)
+    if sprite_offset_loc != -1:
+        glUniform2f(sprite_offset_loc, 0.0, 0.0)  # Resetar offset
+    if sprite_size_loc != -1:
+        glUniform2f(sprite_size_loc, 1.0, 1.0)  # Resetar tamanho
 
     # Desativar recursos
     glBindTexture(GL_TEXTURE_2D, 0)
