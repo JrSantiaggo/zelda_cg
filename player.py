@@ -14,6 +14,8 @@ import world_config
 playerMesh = 0
 playerTexture = 0
 playerIdleTexture = 0
+playerAttackTexture = 0  # Ataque parado
+playerRunAttackTexture = 0  # Ataque correndo
 position = glm.vec3(*config.INITIAL_POSITION)
 
 # Variáveis de animação
@@ -21,6 +23,9 @@ animation_time = 0.0
 current_direction = 3  # Direção inicial: frente (linha 3)
 last_direction = 3  # Direção anterior (para detectar mudanças de direção)
 is_moving = False
+is_attacking = False  # Estado de ataque
+attack_animation_time = 0.0  # Tempo da animação de ataque
+was_pressing_space = False  # Estado anterior da tecla espaço (para detectar apenas quando pressionada)
 last_update_time = 0.0
 was_moving = False  # Estado anterior de movimento (para detectar transições)
 
@@ -32,13 +37,15 @@ def init(geometry_module):
     Args:
         geometry_module: Módulo geometry para criar malhas
     """
-    global playerMesh, playerTexture, playerIdleTexture
+    global playerMesh, playerTexture, playerIdleTexture, playerAttackTexture, playerRunAttackTexture
     import os
     
     here = os.path.dirname(os.path.abspath(__file__))
     playerMesh = geometry_module.createSpriteMesh()
     playerTexture = resources.loadTexture(os.path.join(here, config.TEXTURE_FILE))
     playerIdleTexture = resources.loadTexture(os.path.join(here, config.IDLE_TEXTURE_FILE))
+    playerAttackTexture = resources.loadTexture(os.path.join(here, "texture/player2/Swordsman_lvl3_attack_with_shadow.png"))
+    playerRunAttackTexture = resources.loadTexture(os.path.join(here, "texture/player2/Swordsman_lvl3_Run_Attack_with_shadow.png"))
 
 
 def update(window):
@@ -46,7 +53,7 @@ def update(window):
     Atualiza a lógica do jogador (movimentação e input).
     Inclui verificação de colisão com tiles sólidos do mapa.
     """
-    global position, animation_time, current_direction, is_moving
+    global position, animation_time, current_direction, is_moving, is_attacking, attack_animation_time
     
     moveX = 0.0
     moveZ = 0.0
@@ -229,6 +236,16 @@ def update(window):
             # Tile não encontrado ou inválido - usar altura padrão do chão
             position.y = world_config.GROUND_LEVEL
     
+    # ===== DETECTAR ATAQUE (TECLA ESPAÇO) =====
+    # Detectar se espaço foi pressionado (apenas quando a tecla é pressionada, não mantida)
+    global was_pressing_space
+    space_pressed = glfw.get_key(window, glfw.KEY_SPACE) == glfw.PRESS
+    if space_pressed and not was_pressing_space and not is_attacking:
+        # Iniciar animação de ataque apenas quando a tecla é pressionada pela primeira vez
+        is_attacking = True
+        attack_animation_time = 0.0
+    was_pressing_space = space_pressed
+    
     # ===== ATUALIZAR ANIMAÇÃO =====
     # Atualizar tempo de animação baseado no estado de movimento
     global last_update_time, was_moving, last_direction
@@ -240,53 +257,79 @@ def update(window):
     delta_time = current_time - last_update_time
     last_update_time = current_time
     
-    # Detectar transição de movimento para idle ou vice-versa
-    if was_moving != is_moving:
-        # Transição detectada - resetar animation_time para 0
-        animation_time = 0.0
-    
-    # Detectar mudança de direção e resetar animation_time se necessário
-    if last_direction != current_direction:
-        animation_time = 0.0
-    
-    was_moving = is_moving
-    last_direction = current_direction
-    
-    if is_moving:
-        # Animação de movimento: 8 frames por direção
-        animation_time += delta_time * config.ANIMATION_SPEED
-        # Loop da animação (0 a 8 frames)
-        animation_time = animation_time % config.SPRITE_SHEET_COLS
+    # Se está atacando, atualizar animação de ataque
+    if is_attacking:
+        # Animação de ataque é mais rápida que movimento normal (2x mais rápida)
+        attack_animation_speed = config.ANIMATION_SPEED * 2.0
+        attack_animation_time += delta_time * attack_animation_speed
+        # Ataque tem 8 frames (0 a 7)
+        if attack_animation_time >= config.SPRITE_SHEET_COLS:
+            # Animação de ataque terminou
+            is_attacking = False
+            attack_animation_time = 0.0
+            # Resetar animation_time para continuar animação normal
+            animation_time = 0.0
     else:
-        # Animação idle: continuar animando quando parado
-        # Velocidade de animação idle (um pouco mais lenta que movimento)
-        idle_animation_speed = config.ANIMATION_SPEED * 0.6  # 60% da velocidade de movimento
-        animation_time += delta_time * idle_animation_speed
-        # Número de colunas varia por direção na textura idle:
-        # Linha 0 (cima/W): 4 colunas
-        # Linhas 1-3 (direita, esquerda, baixo): 12 colunas cada
-        if current_direction == 0:
-            idle_cols = 4   # Linha 0 (cima/W): 4 colunas
+        # Detectar transição de movimento para idle ou vice-versa
+        if was_moving != is_moving:
+            # Transição detectada - resetar animation_time para 0
+            animation_time = 0.0
+        
+        # Detectar mudança de direção e resetar animation_time se necessário
+        if last_direction != current_direction:
+            animation_time = 0.0
+        
+        was_moving = is_moving
+        last_direction = current_direction
+        
+        if is_moving:
+            # Animação de movimento: 8 frames por direção
+            animation_time += delta_time * config.ANIMATION_SPEED
+            # Loop da animação (0 a 8 frames)
+            animation_time = animation_time % config.SPRITE_SHEET_COLS
         else:
-            idle_cols = 12  # Linhas 1-3 (direita, esquerda, baixo): 12 colunas
-        # Loop da animação idle (garantir que está no range 0 a idle_cols)
-        animation_time = animation_time % idle_cols
+            # Animação idle: continuar animando quando parado
+            # Velocidade de animação idle (um pouco mais lenta que movimento)
+            idle_animation_speed = config.ANIMATION_SPEED * 0.6  # 60% da velocidade de movimento
+            animation_time += delta_time * idle_animation_speed
+            # Número de colunas varia por direção na textura idle:
+            # Linha 0 (cima/W): 4 colunas
+            # Linhas 1-3 (direita, esquerda, baixo): 12 colunas cada
+            if current_direction == 0:
+                idle_cols = 4   # Linha 0 (cima/W): 4 colunas
+            else:
+                idle_cols = 12  # Linhas 1-3 (direita, esquerda, baixo): 12 colunas
+            # Loop da animação idle (garantir que está no range 0 a idle_cols)
+            animation_time = animation_time % idle_cols
 
 
 def render(modelMatrix_loc, cameraPos):
     """
     Renderiza o jogador na cena.
     """
-    global animation_time, current_direction, is_moving
+    global animation_time, current_direction, is_moving, is_attacking, attack_animation_time
     
     glBindVertexArray(playerMesh[0])
     
-    # Selecionar textura apropriada baseado no estado de movimento
-    if is_moving:
+    # Selecionar textura apropriada baseado no estado (ataque > movimento > idle)
+    if is_attacking:
+        # Usar textura de ataque
+        if is_moving:
+            # Ataque enquanto correndo
+            glBindTexture(GL_TEXTURE_2D, playerRunAttackTexture)
+        else:
+            # Ataque enquanto parado
+            glBindTexture(GL_TEXTURE_2D, playerAttackTexture)
+        sprite_cols = config.SPRITE_SHEET_COLS  # 8 colunas para ataque
+        animation_cols = sprite_cols  # Mesmo valor para ataque
+        # Usar attack_animation_time para animação de ataque
+        current_frame = int(attack_animation_time) % animation_cols
+    elif is_moving:
         # Usar textura de movimento
         glBindTexture(GL_TEXTURE_2D, playerTexture)
         sprite_cols = config.SPRITE_SHEET_COLS  # 8 colunas para movimento
         animation_cols = sprite_cols  # Mesmo valor para movimento
+        current_frame = int(animation_time) % animation_cols
     else:
         # Usar textura idle
         glBindTexture(GL_TEXTURE_2D, playerIdleTexture)
@@ -302,10 +345,7 @@ def render(modelMatrix_loc, cameraPos):
         # Garantir que animation_time está normalizado para esta direção específica
         # Importante: normalizar ANTES de calcular o frame para evitar valores incorretos
         animation_time = animation_time % animation_cols
-    
-    # Calcular frame atual da animação
-    # Usar floor para garantir valor inteiro correto
-    current_frame = int(animation_time) % animation_cols
+        current_frame = int(animation_time) % animation_cols
     
     # Calcular offset do sprite sheet
     # spriteOffset = (coluna * spriteWidth, linha * spriteHeight)

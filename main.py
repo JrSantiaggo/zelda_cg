@@ -49,7 +49,7 @@ def init():
     )
     
     # Inicializar recursos dos módulos
-  # IMPORTANTE: props.init() deve ser chamado ANTES de map.init()
+    # IMPORTANTE: props.init() deve ser chamado ANTES de map.init()
     # porque map.init() adiciona props à lista
     props.init()
     player.init(geometry)
