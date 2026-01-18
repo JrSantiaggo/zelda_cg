@@ -9,6 +9,7 @@ import config
 import resources
 import map
 import world_config
+import props
 
 # Variáveis globais do jogador
 playerMesh = 0
@@ -160,7 +161,11 @@ def update(window):
         
         # Se chegou aqui, pode tentar mover (está em rampa ou diferença de altura é aceitável)
         # Verificar colisão na posição alvo (passando altura do jogador)
-        if not map.checkTileCollision(target_x, target_z, player_radius, target_y):
+        # Verificar colisão com tiles E props
+        tile_collision = map.checkTileCollision(target_x, target_z, player_radius, target_y)
+        prop_collision = props.checkPropCollision(target_x, target_z, player_radius, target_y)
+        
+        if not tile_collision and not prop_collision:
             # Sem colisão, atualizar posição
             position.x = target_x
             position.z = target_z
@@ -183,8 +188,10 @@ def update(window):
                 x_height_diff = x_y - current_y
                 # Permitir movimento em X se estiver em rampa ou diferença for aceitável
                 if x_on_ramp or current_on_ramp or (x_height_diff <= max_height_jump and x_height_diff >= -max_height_drop):
-                    # Tentar movimento apenas em X
-                    if not map.checkTileCollision(target_x, position.z, player_radius, x_y):
+                    # Tentar movimento apenas em X - verificar colisão com tiles E props
+                    x_tile_collision = map.checkTileCollision(target_x, position.z, player_radius, x_y)
+                    x_prop_collision = props.checkPropCollision(target_x, position.z, player_radius, x_y)
+                    if not x_tile_collision and not x_prop_collision:
                         position.x = target_x
                     else:
                         # Calcular altura para movimento apenas em Z
@@ -204,8 +211,10 @@ def update(window):
                         z_height_diff = z_y - current_y
                         # Permitir movimento em Z se estiver em rampa ou diferença for aceitável
                         if z_on_ramp or current_on_ramp or (z_height_diff <= max_height_jump and z_height_diff >= -max_height_drop):
-                            # Tentar movimento apenas em Z
-                            if not map.checkTileCollision(position.x, target_z, player_radius, z_y):
+                            # Tentar movimento apenas em Z - verificar colisão com tiles E props
+                            z_tile_collision = map.checkTileCollision(position.x, target_z, player_radius, z_y)
+                            z_prop_collision = props.checkPropCollision(position.x, target_z, player_radius, z_y)
+                            if not z_tile_collision and not z_prop_collision:
                                 position.z = target_z
                         # Se ambos causarem colisão, não mover (jogador bloqueado)
     else:

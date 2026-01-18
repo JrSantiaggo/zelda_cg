@@ -7,6 +7,7 @@ import glm
 import numpy as np
 import ctypes
 import os
+import math
 import resources
 import world_config
 
@@ -528,3 +529,96 @@ def render(modelMatrix_loc):
     
     # Limpar bindings
     glBindVertexArray(0)
+
+
+def getProps():
+    """
+    Retorna a lista de todos os props no mundo.
+    
+    Returns:
+        Lista de props (cada prop é um dicionário com 'pos', 'scale', 'rotation', etc)
+    """
+    return props
+
+
+def checkPropCollision(world_x, world_z, player_radius=0.5, player_y=None):
+    """
+    Verifica se a posição (world_x, world_z) colide com algum prop 3D.
+    Usa colisão cilíndrica no plano XZ e considera altura Y.
+    
+    Cada prop tem uma área de colisão simples baseada em sua posição e escala:
+    - Cilindro no plano XZ (raio = max(scale_x, scale_z) * 0.5 * TILE_SIZE)
+    - Altura do prop: base Y até base Y + scale_y * altura_modelo
+    
+    Args:
+        world_x: Posição X do jogador no mundo
+        world_z: Posição Z do jogador no mundo
+        player_radius: Raio do jogador no plano XZ (default: 0.5 = metade do tile)
+        player_y: Altura Y do jogador (opcional, usado para verificar se está na altura do prop)
+    
+    Returns:
+        True se há colisão com algum prop, False caso contrário
+    """
+    global props
+    import world_config
+    
+    if len(props) == 0:
+        return False
+    
+    # Constante: assume que modelos de props têm altura padrão (~10 unidades sem escala)
+    # Escalado pela escala Y do prop
+    DEFAULT_MODEL_HEIGHT = 10.0  # Altura típica de um modelo de árvore sem escala
+    
+    for prop in props:
+        prop_pos = prop['pos']
+        prop_scale = prop['scale']
+        # prop_rotation = prop.get('rotation', 0.0)  # Não usado para colisão cilíndrica
+        
+        # Calcular raio do prop no plano XZ (cilindro)
+        # A escala já está em unidades do mundo
+        # Assumindo que modelos de props têm dimensões base de ~10 unidades
+        # Com escala (0.1, 0.1, 0.1), o modelo escalado tem ~1.0 unidade de largura
+        # O raio seria metade disso: ~0.5 tiles
+        # Para cálculo genérico: raio = max(scale_x, scale_z) * modelo_base_largura * 0.5
+        # modelo_base_largura ~10 unidades, então: max(0.1, 0.1) * 10 * 0.5 = 0.5
+        model_base_width = 10.0  # Largura base típica do modelo sem escala
+        prop_radius_xz = max(prop_scale[0], prop_scale[2]) * model_base_width * 0.5
+        
+        # Posição do prop no plano XZ (centro do cilindro)
+        prop_x = prop_pos[0]
+        prop_z = prop_pos[2]
+        
+        # Calcular distância 2D do jogador ao centro do prop (no plano XZ)
+        dist_x = world_x - prop_x
+        dist_z = world_z - prop_z
+        dist_2d = math.sqrt(dist_x * dist_x + dist_z * dist_z)
+        
+        # Verificar colisão no plano XZ (círculos sobrepostos)
+        if dist_2d < (player_radius + prop_radius_xz):
+            # Colisão no plano XZ detectada - agora verificar altura Y
+            
+            if player_y is not None:
+                # Calcular altura do prop
+                # Base do prop está em prop_pos[1] (já posicionado no topo do tile)
+                # A altura do prop é scale_y * altura_modelo
+                # Como os props são posicionados no topo do tile, a base do prop está em prop_pos[1]
+                # e o topo está em prop_pos[1] + scale_y * altura_modelo
+                prop_base_y = prop_pos[1]
+                prop_height = prop_scale[1] * DEFAULT_MODEL_HEIGHT
+                prop_top_y = prop_base_y + prop_height
+                
+                # Verificar se o jogador está dentro da altura do prop
+                # Jogador tem ~2.0 de altura (PLAYER_HEIGHT), então verificar se base ou topo do jogador colidem
+                player_base_y = player_y  # Posição Y do jogador é a base (pés)
+                player_top_y = player_y + world_config.PLAYER_HEIGHT  # Topo do jogador (cabeça)
+                
+                # Colisão de altura: se o jogador (pés ou cabeça) está dentro da altura do prop
+                if (player_base_y <= prop_top_y and player_top_y >= prop_base_y):
+                    # Colisão completa: plano XZ e altura Y
+                    return True
+            else:
+                # Se não fornecer player_y, assumir colisão apenas no plano XZ
+                # (mais permissivo - permite colisão se estiver no mesmo plano horizontal)
+                return True
+    
+    return False
