@@ -8,6 +8,17 @@ import config
 import player
 import map
 import props
+import enemies
+import archer
+
+# Quad 2D para HUD (barra de vida); criado em init(geometry)
+_hud_quad = None
+
+
+def init(geometry_module):
+    """Inicializa recursos do render (ex.: quad da HUD)."""
+    global _hud_quad
+    _hud_quad = geometry_module.createScreenQuad()
 
 
 def render(shaderId, resolution):
@@ -82,10 +93,13 @@ def render(shaderId, resolution):
     # Inicializar uniforms do sprite sheet (para objetos que não usam sprite sheet, usar textura completa)
     sprite_offset_loc = glGetUniformLocation(shaderId, 'spriteOffset')
     sprite_size_loc = glGetUniformLocation(shaderId, 'spriteSize')
+    sprite_hit_flash_loc = glGetUniformLocation(shaderId, 'spriteHitFlash')
     if sprite_offset_loc != -1:
         glUniform2f(sprite_offset_loc, 0.0, 0.0)  # Offset padrão: (0,0) = usar textura completa
     if sprite_size_loc != -1:
         glUniform2f(sprite_size_loc, 1.0, 1.0)  # Tamanho padrão: (1,1) = usar textura completa
+    if sprite_hit_flash_loc != -1:
+        glUniform1f(sprite_hit_flash_loc, 0.0)
     
     # ===== CALCULAR POSIÇÃO DA CÂMERA SEGUINDO O JOGADOR =====
     # Obter posição atual do jogador
@@ -126,6 +140,17 @@ def render(shaderId, resolution):
     camera_pos_loc = glGetUniformLocation(shaderId, 'cameraPos')
     if camera_pos_loc != -1:
         glUniform3f(camera_pos_loc, cameraPos.x, cameraPos.y, cameraPos.z)
+
+    # Luz spot ao redor do jogador (mesmo raio da detecção do inimigo)
+    player_pos_loc = glGetUniformLocation(shaderId, 'playerPos')
+    spotlight_radius_loc = glGetUniformLocation(shaderId, 'spotlightRadius')
+    spotlight_dark_loc = glGetUniformLocation(shaderId, 'spotlightDarkFactor')
+    if player_pos_loc != -1:
+        glUniform3f(player_pos_loc, playerPos.x, playerPos.y, playerPos.z)
+    if spotlight_radius_loc != -1:
+        glUniform1f(spotlight_radius_loc, config.ENEMY_DETECTION_HALF_EXTENT)
+    if spotlight_dark_loc != -1:
+        glUniform1f(spotlight_dark_loc, config.SPOTLIGHT_DARK_FACTOR)
     
     # Matriz de projeção (Projection Matrix) - compartilhada por todos os objetos
     aspectRatio = resolution[0] / resolution[1]
@@ -153,7 +178,8 @@ def render(shaderId, resolution):
     map.renderPlatforms(modelMatrix_loc)
     map.renderRamps(modelMatrix_loc)
     props.render(modelMatrix_loc)  # Renderizar props (objetos 3D decorativos)
-    
+    enemies.render(modelMatrix_loc, cameraPos)  # Inimigos (sprites, alvos de teste)
+    archer.render(modelMatrix_loc, cameraPos)   # Arqueiros (separado; futuramente flechas)
     # Renderizar jogador (que usa sprite sheet - não recebe iluminação ambiente)
     player.render(modelMatrix_loc, cameraPos)
     
@@ -162,6 +188,39 @@ def render(shaderId, resolution):
         glUniform2f(sprite_offset_loc, 0.0, 0.0)  # Resetar offset
     if sprite_size_loc != -1:
         glUniform2f(sprite_size_loc, 1.0, 1.0)  # Resetar tamanho
+    if sprite_hit_flash_loc != -1:
+        glUniform1f(sprite_hit_flash_loc, 0.0)
+
+    # ===== HUD: barra de vida do jogador no topo da tela =====
+    if _hud_quad is not None:
+        glDisable(GL_DEPTH_TEST)
+        hp, max_hp = player.get_hp()
+        w, h = resolution[0], resolution[1]
+        ortho = glm.ortho(0.0, float(w), float(h), 0.0, -1.0, 1.0)
+        view_hud = glm.mat4(1.0)
+        glUniformMatrix4fv(projectionMatrix_loc, 1, GL_FALSE, glm.value_ptr(ortho))
+        glUniformMatrix4fv(viewMatrix_loc, 1, GL_FALSE, glm.value_ptr(view_hud))
+        if use_color_loc != -1:
+            glUniform1i(use_color_loc, 1)
+        if is_sprite_loc != -1:
+            glUniform1i(is_sprite_loc, 1)
+        glBindVertexArray(_hud_quad[0])
+        # Fundo da barra (cinza escuro)
+        if object_color_loc != -1:
+            glUniform3f(object_color_loc, 0.25, 0.25, 0.25)
+        model_hud = glm.translate(glm.mat4(1.0), glm.vec3(20.0, 20.0, 0.0))
+        model_hud = glm.scale(model_hud, glm.vec3(204.0, 24.0, 1.0))
+        glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_hud))
+        glDrawArrays(GL_TRIANGLES, 0, _hud_quad[1])
+        # Preenchimento (verde) = vida atual / máxima
+        fill_w = 200.0 * (hp / max_hp) if max_hp > 0 else 0.0
+        if object_color_loc != -1:
+            glUniform3f(object_color_loc, 0.2, 0.8, 0.2)
+        model_fill = glm.translate(glm.mat4(1.0), glm.vec3(22.0, 22.0, 0.0))
+        model_fill = glm.scale(model_fill, glm.vec3(fill_w, 20.0, 1.0))
+        glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_fill))
+        glDrawArrays(GL_TRIANGLES, 0, _hud_quad[1])
+        glEnable(GL_DEPTH_TEST)
 
     # Desativar recursos
     glBindTexture(GL_TEXTURE_2D, 0)

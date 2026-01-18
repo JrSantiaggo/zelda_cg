@@ -13,6 +13,8 @@ import resources
 import player
 import map
 import props
+import enemies
+import archer
 import render
 
 # ============================================================================
@@ -54,6 +56,9 @@ def init():
     props.init()
     player.init(geometry)
     map.init(geometry)
+    enemies.init(geometry)  # após map.init (usa getRampHeightAt / getTilePropertiesAt)
+    archer.init(geometry)   # arqueiros (separado; futuramente flechas)
+    render.init(geometry)   # HUD (barra de vida)
 
 # ============================================================================
 # FUNÇÕES DO SISTEMA (UPDATE E CALLBACKS)
@@ -64,6 +69,8 @@ def update(window):
     Atualiza a lógica do jogo (chama updates de cada sistema).
     """
     player.update(window)
+    enemies.update(window)
+    archer.update(window)
 
 # Função de tratamento de evento (Callback Function) de alteração do tamanho da janela
 def updateWindowSize(window, width, height):

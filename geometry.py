@@ -170,14 +170,18 @@ def createRampMesh():
     
     vertices = [
         # Face inclinada superior (plano inclinado - rampa)
+        # UVs ajustados: U ao longo de Z (largura), V baseado em Y (altura da rampa, de 0 a 1)
+        # Isso garante que a textura (grama no topo, terra embaixo) apareça correta independente da rotação
+        # U: 0.0 = z=-0.5 (esquerda), 1.0 = z=0.5 (direita)
+        # V: 0.0 = y=0 (baixo da rampa/terra), 1.0 = y=1 (topo da rampa/grama)
         # Triângulo 1
-        [start_x, start_y, start_z,   ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 0.0],
-        [end_x, end_y, start_z,       ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 0.0],
-        [end_x, end_y, end_z,         ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 1.0],
+        [start_x, start_y, start_z,   ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 0.0],  # Início baixo esquerda: U=0 (z=-0.5), V=0 (y=0)
+        [end_x, end_y, start_z,       ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 1.0],  # Fim alto esquerda: U=0 (z=-0.5), V=1 (y=1)
+        [end_x, end_y, end_z,         ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 1.0],  # Fim alto direita: U=1 (z=0.5), V=1 (y=1)
         # Triângulo 2
-        [start_x, start_y, start_z,   ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 0.0],
-        [end_x, end_y, end_z,         ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 1.0],
-        [start_x, start_y, end_z,     ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 1.0],
+        [start_x, start_y, start_z,   ramp_normal_x, ramp_normal_y, ramp_normal_z,   0.0, 0.0],  # Início baixo esquerda: U=0, V=0
+        [end_x, end_y, end_z,         ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 1.0],  # Fim alto direita: U=1, V=1
+        [start_x, start_y, end_z,     ramp_normal_x, ramp_normal_y, ramp_normal_z,   1.0, 0.0],  # Início baixo direita: U=1 (z=0.5), V=0 (y=0)
         
         # Face inferior (base plana) - normal: (0, -1, 0)
         [start_x, start_y, start_z,   base_normal[0], base_normal[1], base_normal[2],   0.0, 0.0],
@@ -209,17 +213,21 @@ def createRampMesh():
     return createMeshFromVertices(vertices)
 
 
-def createSpriteMesh():
+def createSpriteMesh(size_x=None, size_y=None):
     """
-    Cria malha de quad para sprite do jogador.
+    Cria malha de quad para sprite (jogador ou inimigo).
     Formato: [x, y, z, nx, ny, nz, u, v]
     
     Para sprite 2D com billboarding, a normal fixa aponta para frente (0, 0, 1)
     para que o sprite sempre tenha iluminação correta quando a luz vier da frente.
     A normal será transformada pela modelMatrix durante o billboarding.
+    
+    Args:
+        size_x: Metade da largura do quad (None = config.OBJECT_SIZE_X)
+        size_y: Metade da altura do quad (None = config.OBJECT_SIZE_Y)
     """
-    w = config.OBJECT_SIZE_X
-    h = config.OBJECT_SIZE_Y
+    w = config.OBJECT_SIZE_X if size_x is None else size_x
+    h = config.OBJECT_SIZE_Y if size_y is None else size_y
     
     # Normal fixa para sprite: aponta para frente no eixo Z positivo (0, 0, 1)
     # Isso garante que o sprite tenha iluminação consistente
@@ -237,4 +245,22 @@ def createSpriteMesh():
         [-w, h*2, 0.0,   sprite_normal[0], sprite_normal[1], sprite_normal[2],   0.0, 1.0],
     ]
     
+    return createMeshFromVertices(vertices)
+
+
+def createScreenQuad():
+    """
+    Cria um quad unitário (0,0)-(1,1) no plano XY, z=0.
+    Usado para HUD (barra de vida etc.) em projeção ortográfica 2D.
+    Formato: [x, y, z, nx, ny, nz, u, v]
+    """
+    n = (0.0, 0.0, 1.0)
+    vertices = [
+        [0.0, 0.0, 0.0,  n[0], n[1], n[2],  0.0, 0.0],
+        [1.0, 0.0, 0.0,  n[0], n[1], n[2],  1.0, 0.0],
+        [1.0, 1.0, 0.0,  n[0], n[1], n[2],  1.0, 1.0],
+        [0.0, 0.0, 0.0,  n[0], n[1], n[2],  0.0, 0.0],
+        [1.0, 1.0, 0.0,  n[0], n[1], n[2],  1.0, 1.0],
+        [0.0, 1.0, 0.0,  n[0], n[1], n[2],  0.0, 1.0],
+    ]
     return createMeshFromVertices(vertices)

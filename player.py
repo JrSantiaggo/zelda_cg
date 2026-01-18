@@ -18,14 +18,19 @@ playerIdleTexture = 0
 playerAttackTexture = 0  # Ataque parado
 playerRunAttackTexture = 0  # Ataque correndo
 position = glm.vec3(*config.INITIAL_POSITION)
+hp = 0  # Vida atual; inicializada em init() com PLAYER_MAX_HP
 
 # Variáveis de animação
 animation_time = 0.0
 current_direction = 3  # Direção inicial: frente (linha 3)
 last_direction = 3  # Direção anterior (para detectar mudanças de direção)
 is_moving = False
-is_attacking = False  # Estado de ataque
-attack_animation_time = 0.0  # Tempo da animação de ataque
+# Estado de ataque (attacking) — sistema formal
+is_attacking = False
+attack_animation_time = 0.0   # Tempo decorrido do ataque atual (0 até ATTACK_DURATION)
+attack_direction = 3          # Direção travada no início do ataque (respeita direção do jogador)
+attack_cooldown_remaining = 0.0  # Tempo restante de recarga (0 = pode atacar)
+
 was_pressing_space = False  # Estado anterior da tecla espaço (para detectar apenas quando pressionada)
 last_update_time = 0.0
 was_moving = False  # Estado anterior de movimento (para detectar transições)
@@ -38,9 +43,10 @@ def init(geometry_module):
     Args:
         geometry_module: Módulo geometry para criar malhas
     """
-    global playerMesh, playerTexture, playerIdleTexture, playerAttackTexture, playerRunAttackTexture
+    global playerMesh, playerTexture, playerIdleTexture, playerAttackTexture, playerRunAttackTexture, hp
     import os
-    
+
+    hp = config.PLAYER_MAX_HP
     here = os.path.dirname(os.path.abspath(__file__))
     playerMesh = geometry_module.createSpriteMesh()
     playerTexture = resources.loadTexture(os.path.join(here, config.TEXTURE_FILE))
@@ -55,6 +61,7 @@ def update(window):
     Inclui verificação de colisão com tiles sólidos do mapa.
     """
     global position, animation_time, current_direction, is_moving, is_attacking, attack_animation_time
+    global attack_direction, attack_cooldown_remaining
     
     moveX = 0.0
     moveZ = 0.0
@@ -245,14 +252,15 @@ def update(window):
             # Tile não encontrado ou inválido - usar altura padrão do chão
             position.y = world_config.GROUND_LEVEL
     
-    # ===== DETECTAR ATAQUE (TECLA ESPAÇO) =====
-    # Detectar se espaço foi pressionado (apenas quando a tecla é pressionada, não mantida)
+    # ===== SISTEMA DE ATAQUE (TECLA ESPAÇO) =====
+    # Só inicia ataque se: tecla recém-pressionada, não está atacando e recarga zerada
     global was_pressing_space
     space_pressed = glfw.get_key(window, glfw.KEY_SPACE) == glfw.PRESS
-    if space_pressed and not was_pressing_space and not is_attacking:
-        # Iniciar animação de ataque apenas quando a tecla é pressionada pela primeira vez
+    can_start_attack = not is_attacking and attack_cooldown_remaining <= 0.0
+    if space_pressed and not was_pressing_space and can_start_attack:
         is_attacking = True
         attack_animation_time = 0.0
+        attack_direction = current_direction  # Trava a direção no início do ataque
     was_pressing_space = space_pressed
     
     # ===== ATUALIZAR ANIMAÇÃO =====
@@ -266,19 +274,18 @@ def update(window):
     delta_time = current_time - last_update_time
     last_update_time = current_time
     
-    # Se está atacando, atualizar animação de ataque
+    # Atualizar estado de ataque (duração fixa) e cooldown
     if is_attacking:
-        # Animação de ataque é mais rápida que movimento normal (2x mais rápida)
-        attack_animation_speed = config.ANIMATION_SPEED * 2.0
-        attack_animation_time += delta_time * attack_animation_speed
-        # Ataque tem 8 frames (0 a 7)
-        if attack_animation_time >= config.SPRITE_SHEET_COLS:
-            # Animação de ataque terminou
+        attack_animation_time += delta_time
+        if attack_animation_time >= config.ATTACK_DURATION:
             is_attacking = False
             attack_animation_time = 0.0
-            # Resetar animation_time para continuar animação normal
+            attack_cooldown_remaining = config.ATTACK_COOLDOWN
             animation_time = 0.0
-    else:
+    elif attack_cooldown_remaining > 0.0:
+        attack_cooldown_remaining = max(0.0, attack_cooldown_remaining - delta_time)
+
+    if not is_attacking:
         # Detectar transição de movimento para idle ou vice-versa
         if was_moving != is_moving:
             # Transição detectada - resetar animation_time para 0
@@ -320,19 +327,16 @@ def render(modelMatrix_loc, cameraPos):
     
     glBindVertexArray(playerMesh[0])
     
-    # Selecionar textura apropriada baseado no estado (ataque > movimento > idle)
+    # Selecionar textura e frame baseado no estado (ataque > movimento > idle)
     if is_attacking:
-        # Usar textura de ataque
         if is_moving:
-            # Ataque enquanto correndo
             glBindTexture(GL_TEXTURE_2D, playerRunAttackTexture)
         else:
-            # Ataque enquanto parado
             glBindTexture(GL_TEXTURE_2D, playerAttackTexture)
-        sprite_cols = config.SPRITE_SHEET_COLS  # 8 colunas para ataque
-        animation_cols = sprite_cols  # Mesmo valor para ataque
-        # Usar attack_animation_time para animação de ataque
-        current_frame = int(attack_animation_time) % animation_cols
+        sprite_cols = config.SPRITE_SHEET_COLS
+        # Frame baseado em duração fixa: progresso 0..1 sobre ATTACK_DURATION
+        progress = min(1.0, attack_animation_time / config.ATTACK_DURATION)
+        current_frame = min(config.ATTACK_FRAMES - 1, int(progress * config.ATTACK_FRAMES))
     elif is_moving:
         # Usar textura de movimento
         glBindTexture(GL_TEXTURE_2D, playerTexture)
@@ -362,7 +366,9 @@ def render(modelMatrix_loc, cameraPos):
     sprite_height = 1.0 / config.SPRITE_SHEET_ROWS
     
     offset_x = current_frame * sprite_width
-    offset_y = current_direction * sprite_height
+    # Durante o ataque usa attack_direction (travada no início); senão current_direction
+    direction_row = attack_direction if is_attacking else current_direction
+    offset_y = direction_row * sprite_height
     
     # Obter shader ID para definir uniforms
     shader_id = glGetInteger(GL_CURRENT_PROGRAM)
@@ -379,6 +385,9 @@ def render(modelMatrix_loc, cameraPos):
     # Marcar como sprite 2D (não recebe iluminação ambiente)
     if is_sprite_loc != -1:
         glUniform1i(is_sprite_loc, 1)  # true = sprite 2D (sem iluminação)
+    sprite_hit_flash_loc = glGetUniformLocation(shader_id, 'spriteHitFlash')
+    if sprite_hit_flash_loc != -1:
+        glUniform1f(sprite_hit_flash_loc, 0.0)
     
     # Matriz de modelo com billboarding cilíndrico
     # O sprite rotaciona apenas no eixo Y para sempre olhar para a câmera
@@ -394,3 +403,65 @@ def getPosition():
     Retorna a posição atual do jogador.
     """
     return position
+
+
+def get_hp():
+    """Retorna (vida atual, vida máxima) para a HUD."""
+    return (hp, config.PLAYER_MAX_HP)
+
+
+def take_damage(amount):
+    """Reduz a vida do jogador. Chamado quando o inimigo acerta o ataque."""
+    global hp
+    hp = max(0, hp - amount)
+
+
+def get_attack_hitbox():
+    """
+    Retorna a hitbox de ataque da espada no plano XZ, quando o jogador está atacando.
+
+    A hitbox é um retângulo direcional: comprimento na direção do ataque (curta distância)
+    e largura menor na perpendicular. Só existe durante is_attacking.
+
+    Returns:
+        tuple | None: (min_x, max_x, min_z, max_z) em coordenadas de mundo se is_attacking,
+                      None caso contrário.
+
+    Convenção de attack_direction (igual às linhas do sprite):
+        0 = cima (UP, -Z)
+        1 = direita (RIGHT, +X)
+        2 = esquerda (LEFT, -X)
+        3 = baixo (DOWN, +Z)
+    """
+    if not is_attacking:
+        return None
+    px, pz = position.x, position.z
+    L = config.ATTACK_HITBOX_LENGTH
+    W = config.ATTACK_HITBOX_WIDTH
+    front = config.ATTACK_HITBOX_PLAYER_FRONT
+    hw = W / 2
+    if attack_direction == 0:   # cima (-Z)
+        return (px - hw, px + hw, pz - front - L, pz - front)
+    if attack_direction == 3:   # baixo (+Z)
+        return (px - hw, px + hw, pz + front, pz + front + L)
+    if attack_direction == 1:   # direita (+X)
+        return (px + front, px + front + L, pz - hw, pz + hw)
+    if attack_direction == 2:   # esquerda (-X)
+        return (px - front - L, px - front, pz - hw, pz + hw)
+    return None
+
+
+def is_point_in_attack_hitbox(x, z):
+    """
+    Verifica se o ponto (x, z) no plano XZ está dentro da hitbox de ataque.
+
+    Útil para detecção de alvos quando for implementar dano.
+
+    Returns:
+        bool: True se is_attacking e o ponto está no retângulo da hitbox.
+    """
+    box = get_attack_hitbox()
+    if box is None:
+        return False
+    min_x, max_x, min_z, max_z = box
+    return min_x <= x <= max_x and min_z <= z <= max_z

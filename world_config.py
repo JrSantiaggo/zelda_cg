@@ -44,7 +44,9 @@ GROUND_LEVEL = -0.15
 
 # Tipos básicos de tile/obstáculo
 TILE_TYPE_FLOOR = "floor"              # Piso padrão (baixo)
-TILE_TYPE_PLATFORM = "platform"        # Plataforma elevada (piso mais alto)
+TILE_TYPE_GROUND = "ground"           # Chão padrão (baixo)
+TILE_TYPE_PLATFORM = "platform"       # Plataforma elevada (piso mais alto)
+      # Plataforma elevada (piso mais alto)
 TILE_TYPE_RAMP = "ramp"                # Rampa inclinada
 
 
@@ -74,6 +76,8 @@ RAMP_DIRECTION_WEST = "W"   # Oeste (X-)
 
 TILE_ID_EMPTY = 0
 TILE_ID_FLOOR = 1
+TILE_ID_GROUND = 2
+TILE_ID_PILLAR = 3
 TILE_ID_PLATFORM = 5
 TILE_ID_RAMP_N = 8   # Rampa Norte
 TILE_ID_RAMP_S = 9   # Rampa Sul
@@ -84,6 +88,7 @@ TILE_ID_RAMP_W = 11  # Rampa Oeste
 TILE_ID_TO_TYPE = {
     TILE_ID_EMPTY: None,
     TILE_ID_FLOOR: TILE_TYPE_FLOOR,
+    TILE_ID_GROUND: TILE_TYPE_GROUND,
     TILE_ID_PLATFORM: TILE_TYPE_PLATFORM,
     TILE_ID_RAMP_N: TILE_TYPE_RAMP,  # Rampa com direção Norte
     TILE_ID_RAMP_S: TILE_TYPE_RAMP,  # Rampa com direção Sul
@@ -130,7 +135,14 @@ def tileIdToType(tile_id):
 TILE_DEFINITIONS = {
     TILE_TYPE_FLOOR: {
         'height': FLOOR_TILE_HEIGHT,  # 0.08
-        'texture': None,  # Usa textura padrão das plataformas
+        'texture': "texture/grass/grass-tile.jpg",  # Usa textura padrão das plataformas
+        'is_solid': False,  # Chão não é sólido - permite movimento sobre ele
+        'scale_x': TILE_SIZE,  # 1.0 (tiles encostados)
+        'scale_z': TILE_SIZE,  # 1.0 (tiles encostados)
+    },
+    TILE_TYPE_GROUND: {
+        'height': FLOOR_TILE_HEIGHT,  # 0.08
+        'texture': "texture/ground/Ground068_2K-JPG_Color.jpg",  # Usa textura padrão das plataformas
         'is_solid': False,  # Chão não é sólido - permite movimento sobre ele
         'scale_x': TILE_SIZE,  # 1.0 (tiles encostados)
         'scale_z': TILE_SIZE,  # 1.0 (tiles encostados)
@@ -138,7 +150,7 @@ TILE_DEFINITIONS = {
     
     TILE_TYPE_PLATFORM: {
         'height': BLOCK_HEIGHT_FULL,  # 1.0 - piso mais alto
-        'texture': None,  # Usa textura padrão das plataformas
+        'texture': "texture/grass/grass-tile.jpg",  # Usa textura padrão das plataformas
         'is_solid': True,
         'scale_x': TILE_SIZE,  # 1.0
         'scale_z': TILE_SIZE,  # 1.0
@@ -146,7 +158,7 @@ TILE_DEFINITIONS = {
     
     TILE_TYPE_RAMP: {
         'height': BLOCK_HEIGHT_FULL,  # 1.0 (será ajustado depois com lógica de rampa)
-        'texture': "texture/bricks/Bricks101_2K-JPG_Color.jpg",
+        'texture': "texture/wood/Wood084A_2K-JPG_Color.jpg",
         'is_solid': False,
         'scale_x': TILE_SIZE,  # 1.0
         'scale_z': TILE_SIZE,  # 1.0
