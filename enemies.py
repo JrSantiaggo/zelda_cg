@@ -105,16 +105,10 @@ def init(geometry_module):
     for i in range(config.ENEMY_DYING_FRAMES):
         path = os.path.join(here, f"{config.ENEMY_DYING_PREFIX}_{i:03d}.png")
         enemyDyingTextures.append(resources.loadTexture(path))
-    # Posições iniciais (x, z) no mundo; Y é calculada pelo terreno
-    spawns = [
-        (2.0, 2.0),
-        (-5.0, 8.0),
-        (10.0, -10.0),
-        (-3.0, -15.0),
-        (0.0, 5.0),
-    ]
+    # Spawns: apenas em plataforma/tiles normais, nunca em água; principalmente ao redor de árvores e no caminho A→B
+    cfg = map.get_enemy_spawn_config()
     enemies = []
-    for x, z in spawns:
+    for x, z in cfg["melee"]:
         y = _height_at(x, z)
         enemies.append({
             "position": glm.vec3(x, y, z),

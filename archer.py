@@ -108,11 +108,12 @@ def init(geometry_module):
     archerDyingTexture = resources.loadTexture(
         os.path.join(here, config.ARCHER_DYING_TEXTURE)
     )
+
     arrowTexture = resources.loadTexture(os.path.join(here, config.ARROW_TEXTURE))
-    spawns = [(6.0, 6.0), (-8.0, 4.0), (12.0, 2.0)]
+    cfg = map.get_enemy_spawn_config()
     archers = []
     arrows = []
-    for x, z in spawns:
+    for x, z in cfg["archer"]:
         y = _height_at(x, z)
         archers.append({
             "position": glm.vec3(x, y, z),

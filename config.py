@@ -19,7 +19,8 @@ OPENGL_VERSION_MAJOR = 3
 OPENGL_VERSION_MINOR = 3
 
 # Cor de fundo da janela (R, G, B, A) - valores de 0.0 a 1.0
-BACKGROUND_COLOR = (0.9, 0.9, 0.9, 1.0)
+# Cor escura nas áreas sem geometria (céu/vazio) para não parecer que o cenário flutua
+BACKGROUND_COLOR = (0.08, 0.08, 0.1, 1.0)
 
 
 # ============================================================================
@@ -36,12 +37,12 @@ OBJECT_SIZE_Y = 1.5   # Metade da altura do sprite (altura total = 2.0 tiles)
 ENEMY_OBJECT_SIZE_X = OBJECT_SIZE_X / 1.5 # Metade da largura (igual ao jogador)
 ENEMY_OBJECT_SIZE_Y = OBJECT_SIZE_Y / 1.5 # Metade da altura (igual ao jogador)
 
-# Posição inicial do jogador (x, y, z) em coordenadas de mundo
-# y=0 representa o chão, o sprite é desenhado "de pé" a partir dessa posição
-INITIAL_POSITION = (0.0, 0.0, 0.0)
+# Posição inicial do jogador (x, y, z) em coordenadas de mundo — ponto A (canto inf. esq.)
+# y é ajustado pelo terreno; mapa 40x40 offset (-20,-20) -> (2,38) = mundo (-18, 18)
+INITIAL_POSITION = (-18.0, 0.0, 18.0)
 
 # Vida do jogador (HUD na barra superior)
-PLAYER_MAX_HP = 6
+PLAYER_MAX_HP = 15
 
 
 # ============================================================================
@@ -50,7 +51,7 @@ PLAYER_MAX_HP = 6
 
 # Velocidade de movimento do jogador (tiles por frame)
 # ~0.05 tiles/frame = movimento suave, ~20 frames para atravessar 1 tile
-MOVEMENT_SPEED = 0.05
+MOVEMENT_SPEED = 0.45
 
 # Configurações de animação do sprite sheet
 SPRITE_SHEET_ROWS = 4      # Número de linhas (direções)
@@ -146,7 +147,8 @@ HIT_KNOCKBACK_DISTANCE = 0.28
 ENEMY_DETECTION_HALF_EXTENT = 6.0   # Raio do círculo de detecção e da luz spot (tiles)
 
 # Luz spot ao redor do jogador: fora do spot o mapa fica mais escuro
-SPOTLIGHT_DARK_FACTOR = 0.25       # Iluminação fora do spot (0.25 = 25%)
+# Aumentar deixa as áreas longe do jogador mais claras (ex.: 0.4 = 40%, 0.5 = 50%)
+SPOTLIGHT_DARK_FACTOR = 0.4        # Iluminação fora do spot (0.4 = 40%; era 0.25)
 ENEMY_MOVEMENT_SPEED = 0.02         # Velocidade ao seguir o jogador (tiles por frame), um pouco mais lento que o player
 
 # Ataque do inimigo ao jogador: ao encostar (alcance de hit), para e ataca; 2 s entre ataques
@@ -208,23 +210,20 @@ TEXTURE_WRAP_T = "GL_MIRRORED_REPEAT"  # Será definido como GL_CLAMP_TO_BORDER 
 
 
 # ============================================================================
-# CONFIGURAÇÕES DE ILUMINAÇÃO
+# CONFIGURAÇÕES DE ILUMINAÇÃO — para deixar o ambiente mais claro, aumente:
+#   AMBIENT_LIGHT, DIRECTIONAL_LIGHT_COLOR e/ou SPOTLIGHT_DARK_FACTOR (linha ~149)
 # ============================================================================
 
 # Cor da luz ambiente global (R, G, B) - valores de 0.0 a 1.0
 # Multiplicada pela cor da textura/objeto para criar iluminação base
-# Aumentado para 40% para reduzir visibilidade das bordas entre tiles de piso uniforme
-AMBIENT_LIGHT = (0.4, 0.4, 0.4)  # Intensidade ambiente: 40% de iluminação base
+AMBIENT_LIGHT = (0.55, 0.55, 0.55)  # Mais claro: ~55% (era 0.4)
 
 # Luz direcional para iluminação difusa (modelo de Lambert)
 # Direção da luz direcional (vetor normalizado apontando da superfície para a luz)
-# Ajustado para ângulo isométrico agradável: luz vindo de cima e levemente de um lado
 DIRECTIONAL_LIGHT_DIRECTION = (0.3, 0.9, 0.3)  # Direção da luz (será normalizada no shader)
 
 # Cor/intensidade da luz direcional (R, G, B) - valores de 0.0 a 1.0
-# Reduzido para 40% para diminuir variações de iluminação entre tiles adjacentes
-# Isso ajuda a suavizar bordas quando o piso tem textura de cor uniforme
-DIRECTIONAL_LIGHT_COLOR = (0.4, 0.4, 0.4)  # Intensidade da luz difusa: 40%
+DIRECTIONAL_LIGHT_COLOR = (0.55, 0.55, 0.55)  # Mais claro: ~55% (era 0.4)
 
 # Iluminação especular (modelo de Phong)
 # Intensidade do brilho especular - valores de 0.0 a 1.0
