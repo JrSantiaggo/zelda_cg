@@ -16,12 +16,14 @@ import player
 archerMesh = 0
 archerIdleTexture = 0
 archerAttackTexture = 0
+archerRunTexture = 0
 archerDyingTexture = 0
 arrowMesh = 0
 arrowTexture = 0
 archers = []
 arrows = []  # {position, velocity: (dx, dz), spawn_pos}
 archer_animation_time = 0.0
+archer_run_animation_time = 0.0
 _last_update_time = 0.0
 
 H = config.ENEMY_DETECTION_HALF_EXTENT  # raio do spot = detecção
@@ -69,12 +71,24 @@ def _height_at(world_x, world_z):
     return world_config.GROUND_LEVEL
 
 
+def _get_height_info(world_x, world_z):
+    """Retorna (y, on_ramp). on_ramp=True se o ponto está em rampa (permite subir/descer)."""
+    ramp_height = map.getRampHeightAt(world_x, world_z)
+    if ramp_height is not None:
+        return (world_config.GROUND_LEVEL + ramp_height, True)
+    tile_props = map.getTilePropertiesAt(world_x, world_z)
+    if tile_props:
+        h = tile_props.get("height", world_config.FLOOR_TILE_HEIGHT)
+        return (world_config.GROUND_LEVEL + h, False)
+    return (world_config.GROUND_LEVEL, False)
+
+
 def init(geometry_module):
     """
     Inicializa malhas (arqueiro e flecha), texturas e spawna arqueiros.
     map.init() deve ter sido chamado antes.
     """
-    global archerMesh, archerIdleTexture, archerAttackTexture, archerDyingTexture, arrowMesh, arrowTexture, archers, arrows
+    global archerMesh, archerIdleTexture, archerAttackTexture, archerRunTexture, archerDyingTexture, arrowMesh, arrowTexture, archers, arrows
     here = os.path.dirname(os.path.abspath(__file__))
     archerMesh = geometry_module.createSpriteMesh(
         config.ARCHER_OBJECT_SIZE_X, config.ARCHER_OBJECT_SIZE_Y
@@ -87,6 +101,9 @@ def init(geometry_module):
     )
     archerAttackTexture = resources.loadTexture(
         os.path.join(here, config.ARCHER_ATTACK_TEXTURE)
+    )
+    archerRunTexture = resources.loadTexture(
+        os.path.join(here, config.ARCHER_RUN_TEXTURE)
     )
     archerDyingTexture = resources.loadTexture(
         os.path.join(here, config.ARCHER_DYING_TEXTURE)
@@ -112,13 +129,14 @@ def update(window):
     Se dist <= H e não em fuga: atira (cooldown). Flechas: movem, atingem player (dano = ENEMY_ATTACK_DAMAGE) e somem.
     Arqueiros podem ser atacados pela espada (como inimigos): dano, knockback, flash; hp <= 0 remove.
     """
-    global _last_update_time, archer_animation_time, arrows, _hit_this_attack_archer
+    global _last_update_time, archer_animation_time, archer_run_animation_time, arrows, _hit_this_attack_archer
     now = glfw.get_time()
     if _last_update_time == 0.0:
         _last_update_time = now
     delta = now - _last_update_time
     _last_update_time = now
     archer_animation_time += delta * config.ARCHER_IDLE_ANIMATION_SPEED
+    archer_run_animation_time += delta * config.ARCHER_RUN_ANIMATION_SPEED
 
     pp = player.getPosition()
     px, pz = pp.x, pp.z
@@ -171,6 +189,7 @@ def update(window):
         if (a.get("hp", 2) > 0 and not a.get("dying")
                 and not ("hit_feedback_until" in a and now < a["hit_feedback_until"])):
             if dist <= FLEE_D:
+                a["fleeing"] = True
                 # Fuga: correr na direção oposta (velocidade menor)
                 if dist > 0.001:
                     dx /= dist
@@ -180,10 +199,23 @@ def update(window):
                     spd = config.ARCHER_FLEE_SPEED
                     nx = ax + flee_dx * spd
                     nz = az + flee_dz * spd
-                    ny = _height_at(nx, nz)
-                    a["position"] = glm.vec3(nx, ny, nz)
-                    a["facing_right"] = (flee_dx > 0)
+                    # Mesma lógica do player: não sobe em plataformas (só por rampas), não desce (só por rampas)
+                    current_y, current_on_ramp = _get_height_info(ax, az)
+                    target_y, target_on_ramp = _get_height_info(nx, nz)
+                    height_diff = target_y - current_y
+                    max_height_jump = 0.15
+                    max_height_drop = 0.3
+                    if current_on_ramp or target_on_ramp:
+                        allow = True
+                    elif height_diff > max_height_jump or height_diff < -max_height_drop:
+                        allow = False
+                    else:
+                        allow = True
+                    if allow:
+                        a["position"] = glm.vec3(nx, target_y, nz)
+                        a["facing_right"] = (flee_dx > 0)
             elif dist <= H:
+                a["fleeing"] = False
                 # Dentro do spot: atira (com cooldown); encara o jogador
                 a["facing_right"] = (dx > 0)
                 if a.get("shoot_cooldown_remaining", 0.0) <= 0.0:
@@ -197,6 +229,10 @@ def update(window):
                             "velocity": (dx, dz),
                             "spawn_pos": (ax, ay, az),
                         }
+            else:
+                a["fleeing"] = False  # dist > H
+        else:
+            a["fleeing"] = False  # morto, morrendo ou em hit_feedback
 
         # Flecha agendada: após o delay, spawna (sincroniza com o frame da animação)
         pa = a.get("pending_arrow")
@@ -279,6 +315,12 @@ def render(modelMatrix_loc, cameraPos):
                 frame = min(cols - 1, int(progress * cols))
                 sw, sh = 1.0 / cols, 1.0
                 tex = archerAttackTexture
+            elif a.get("fleeing"):
+                # Animação de corrida/fuga: 6 colunas, 1 linha
+                cols = config.ARCHER_RUN_COLS
+                frame = int(archer_run_animation_time) % cols
+                sw, sh = 1.0 / cols, 1.0
+                tex = archerRunTexture
             else:
                 cols = config.ARCHER_IDLE_COLS
                 sw, sh = 1.0 / cols, 1.0

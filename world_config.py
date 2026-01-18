@@ -30,7 +30,7 @@ PLAYER_HEIGHT = 2.0
 # Alturas padrão para diferentes tipos de blocos/obstáculos
 BLOCK_HEIGHT_HALF = 0.5    # Meio tile - obstáculo baixo (pulável)
 BLOCK_HEIGHT_FULL = 1.0    # 1 tile - cintura do jogador (obstáculo padrão)
-BLOCK_HEIGHT_PILLAR = 2.0  # 2 tiles - altura do jogador (pilar)
+BLOCK_HEIGHT_PILLAR = 1.5  # 2 tiles - altura do jogador (pilar)
 WALL_HEIGHT_LOW = 2.0      # 2 tiles - parede baixa
 WALL_HEIGHT_HIGH = 3.0     # 3 tiles - parede alta
 
@@ -46,7 +46,8 @@ GROUND_LEVEL = -0.15
 TILE_TYPE_FLOOR = "floor"              # Piso padrão (baixo)
 TILE_TYPE_GROUND = "ground"           # Chão padrão (baixo)
 TILE_TYPE_PLATFORM = "platform"       # Plataforma elevada (piso mais alto)
-      # Plataforma elevada (piso mais alto)
+TILE_TYPE_BUSH_BLOCK = "bush_block"   # Bloco arbusto (folhas); plataforma mais alta para labirintos/caminhos
+TILE_TYPE_WATER = "water"              # Água (superfície baixa, impressão de profundidade; is_liquid = não atravessável)
 TILE_TYPE_RAMP = "ramp"                # Rampa inclinada
 
 
@@ -69,6 +70,8 @@ RAMP_DIRECTION_WEST = "W"   # Oeste (X-)
 # 0 = vazio (sem tile)
 # 1 = FLOOR (chão/piso padrão)
 # 5 = PLATFORM (plataforma/piso mais alto)
+# 6 = BUSH_BLOCK (bloco arbusto/folhas; mais alto que plataforma, para labirintos)
+# 7 = WATER (água; superfície rebaixada, textura de água, is_liquid)
 # 8 = RAMP N (rampa Norte)
 # 9 = RAMP S (rampa Sul)
 # 10 = RAMP E (rampa Leste)
@@ -79,6 +82,8 @@ TILE_ID_FLOOR = 1
 TILE_ID_GROUND = 2
 TILE_ID_PILLAR = 3
 TILE_ID_PLATFORM = 5
+TILE_ID_BUSH_BLOCK = 6   # Bloco arbusto (folhas) — mais alto, para labirintos
+TILE_ID_WATER = 7        # Água (textura water, superfície rebaixada, não atravessável)
 TILE_ID_RAMP_N = 8   # Rampa Norte
 TILE_ID_RAMP_S = 9   # Rampa Sul
 TILE_ID_RAMP_E = 10  # Rampa Leste
@@ -90,6 +95,8 @@ TILE_ID_TO_TYPE = {
     TILE_ID_FLOOR: TILE_TYPE_FLOOR,
     TILE_ID_GROUND: TILE_TYPE_GROUND,
     TILE_ID_PLATFORM: TILE_TYPE_PLATFORM,
+    TILE_ID_BUSH_BLOCK: TILE_TYPE_BUSH_BLOCK,
+    TILE_ID_WATER: TILE_TYPE_WATER,
     TILE_ID_RAMP_N: TILE_TYPE_RAMP,  # Rampa com direção Norte
     TILE_ID_RAMP_S: TILE_TYPE_RAMP,  # Rampa com direção Sul
     TILE_ID_RAMP_E: TILE_TYPE_RAMP,  # Rampa com direção Leste
@@ -155,7 +162,21 @@ TILE_DEFINITIONS = {
         'scale_x': TILE_SIZE,  # 1.0
         'scale_z': TILE_SIZE,  # 1.0
     },
-    
+    TILE_TYPE_BUSH_BLOCK: {
+        'height': BLOCK_HEIGHT_PILLAR,  # 2.0 - mais alto que plataforma, para paredes de labirinto
+        'texture': "texture/leaves/ScatteredLeaves008_2K-JPG_Color.jpg",
+        'is_solid': True,
+        'scale_x': TILE_SIZE,
+        'scale_z': TILE_SIZE,
+    },
+    TILE_TYPE_WATER: {
+        'height': -0.10,  # Superfície rebaixada (depressão) em relação ao piso — impressão de profundidade
+        'texture': "texture/water/water.jpg",
+        'is_solid': False,
+        'is_liquid': True,  # Bloqueia movimento (não atravessável), independente de is_solid
+        'scale_x': TILE_SIZE,
+        'scale_z': TILE_SIZE,
+    },
     TILE_TYPE_RAMP: {
         'height': BLOCK_HEIGHT_FULL,  # 1.0 (será ajustado depois com lógica de rampa)
         'texture': "texture/wood/Wood084A_2K-JPG_Color.jpg",
@@ -233,6 +254,7 @@ def isTileSolid(tile_type):
 SCALE_FLOOR_TILE = (TILE_SIZE_VISUAL, FLOOR_TILE_HEIGHT, TILE_SIZE_VISUAL)
 SCALE_BLOCK_LOW = (1.0, BLOCK_HEIGHT_HALF, 1.0)
 SCALE_BLOCK_STANDARD = (1.0, BLOCK_HEIGHT_FULL, 1.0)
+SCALE_BUSH_BLOCK = (1.0, BLOCK_HEIGHT_PILLAR, 1.0)
 SCALE_PILLAR = (0.8, BLOCK_HEIGHT_PILLAR, 0.8)
 SCALE_WALL_LOW = (1.0, WALL_HEIGHT_LOW, 0.5)
 SCALE_WALL_HIGH = (0.5, WALL_HEIGHT_HIGH, 1.0)
@@ -261,6 +283,8 @@ PROP_ID_EMPTY = 0
 PROP_ID_TREE = -1      # Árvore
 PROP_ID_ROCK = -2      # Pedra
 PROP_ID_BUSH = -3      # Arbusto
+PROP_ID_MEDIEVAL_HOUSE = -4   # Casa medieval (modelo maior)
+PROP_ID_TREE_LOW = -5         # Árvore baixa (treeLow)
 # Adicione mais IDs conforme necessário
 
 # Dicionário de conversão: ID numérico -> tipo de prop (string)
@@ -269,22 +293,40 @@ PROP_ID_TO_TYPE = {
     PROP_ID_TREE: "tree",
     PROP_ID_ROCK: "rock",
     PROP_ID_BUSH: "bush",
+    PROP_ID_MEDIEVAL_HOUSE: "medieval_house",
+    PROP_ID_TREE_LOW: "tree_low",
 }
 
 # Definições de props (similar a TILE_DEFINITIONS)
 # Cada prop possui:
 #   - model: caminho relativo para o modelo 3D (.obj)
 #   - texture: caminho relativo para textura (None = usar MTL do modelo)
-#   - scale: tupla (x, y, z) - escala do modelo
+#   - scale: tupla (x, y, z) — tamanho no mundo. Largura/profundidade (x,z) e altura (y).
+#     A colisão em props usa scale; ~0.1≈1 tile, 0.4≈4 tiles. Altura: scale_y * 10 (unidades).
 #   - rotation: rotação padrão em graus (ao redor do eixo Y)
 #   - y_offset: offset Y adicional (para ajustar altura base do modelo)
 PROP_DEFINITIONS = {
     "tree": {
         'model': "models/tree/Lowpoly_tree_sample.obj",
         'texture': None,  # Usar MTL do modelo
-        'scale': (0.1, 0.1, 0.1),
+        'scale': (0.15, 0.15, 0.15),
         'rotation': 0.0,  # Rotação padrão (pode ser sobrescrita)
         'y_offset': 0.7,  # Offset do modelo (compensa Y=-0.7 do modelo)
+    },
+    "tree_low": {
+        'model': "models/treeLow/TreeLow.obj",
+        'texture': None,  # Usar MTL do modelo
+        'scale': (0.03, 0.03, 0.03),
+        'rotation': 0.0,
+        'y_offset': 0.3,
+    },
+    "medieval_house": {
+        'model': "models/medievalHouse/casaMedieval.obj",
+        'texture': None,  # Usar MTL do modelo
+        # scale (x, y, z): x,z = largura/profundidade (~4 tiles); y = altura (~3× o jogador)
+        'scale': (0.5, 0.5, 0.5),
+        'rotation': 220.0,
+        'y_offset': 2.0,
     },
     # Adicione mais definições conforme necessário:
     # "rock": {

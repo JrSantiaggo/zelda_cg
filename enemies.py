@@ -63,6 +63,18 @@ def _height_at(world_x, world_z):
     return world_config.GROUND_LEVEL
 
 
+def _get_height_info(world_x, world_z):
+    """Retorna (y, on_ramp). on_ramp=True se o ponto está em rampa (permite subir/descer)."""
+    ramp_height = map.getRampHeightAt(world_x, world_z)
+    if ramp_height is not None:
+        return (world_config.GROUND_LEVEL + ramp_height, True)
+    tile_props = map.getTilePropertiesAt(world_x, world_z)
+    if tile_props:
+        h = tile_props.get("height", world_config.FLOOR_TILE_HEIGHT)
+        return (world_config.GROUND_LEVEL + h, False)
+    return (world_config.GROUND_LEVEL, False)
+
+
 def init(geometry_module):
     """
     Inicializa malha, sequência de texturas idle, dying e spawna inimigos.
@@ -191,10 +203,22 @@ def update(window):
                 speed = config.ENEMY_MOVEMENT_SPEED
                 new_x = ex + dx * speed
                 new_z = ez + dz * speed
-                new_y = _height_at(new_x, new_z)
-                e["position"] = glm.vec3(new_x, new_y, new_z)
-                e["is_moving"] = True
-                e["walking_time"] = e.get("walking_time", 0) + delta * config.ENEMY_WALKING_ANIMATION_SPEED
+                # Mesma lógica do player: não sobe em plataformas (só por rampas), não desce (só por rampas)
+                current_y, current_on_ramp = _get_height_info(ex, ez)
+                target_y, target_on_ramp = _get_height_info(new_x, new_z)
+                height_diff = target_y - current_y
+                max_height_jump = 0.15
+                max_height_drop = 0.3
+                if current_on_ramp or target_on_ramp:
+                    allow = True
+                elif height_diff > max_height_jump or height_diff < -max_height_drop:
+                    allow = False
+                else:
+                    allow = True
+                if allow:
+                    e["position"] = glm.vec3(new_x, target_y, new_z)
+                    e["is_moving"] = True
+                    e["walking_time"] = e.get("walking_time", 0) + delta * config.ENEMY_WALKING_ANIMATION_SPEED
     # Encerrar estado "attacking" quando a animação de ataque termina
     attack_dur = config.ENEMY_ATTACK_FRAMES / config.ENEMY_ATTACK_ANIMATION_SPEED
     for e in enemies:

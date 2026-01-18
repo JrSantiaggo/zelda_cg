@@ -1,0 +1,36 @@
+# Cores alinhadas com Lowpoly_tree_sample: Bark (marrom) e Tree (verde)
+# wire_154185229 = copa/folhagem -> verde (Tree)
+# Material__49 = tampas do cilindro -> marrom (Bark)
+# wire_224086086 = tronco -> marrom (Bark)
+
+newmtl wire_154185229
+	Ns 256
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 1
+	Ka 0 0 0
+	Kd 0.256861 0.440506 0.110769
+	Ks 0 0 0
+
+newmtl Material__49
+	Ns 256
+	Ni 1.5000
+	d 1.0000
+	Tr 0.0000
+	Tf 1.0000 1.0000 1.0000
+	illum 1
+	Ka 0 0 0
+	Kd 0.207595 0.138513 0.055181
+	Ks 0.0000 0.0000 0.0000
+	Ke 0.0000 0.0000 0.0000
+
+newmtl wire_224086086
+	Ns 256
+	d 1
+	Tr 0
+	Tf 1 1 1
+	illum 1
+	Ka 0 0 0
+	Kd 0.207595 0.138513 0.055181
+	Ks 0 0 0

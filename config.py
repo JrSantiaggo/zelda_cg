@@ -111,6 +111,10 @@ ARCHER_ARROW_DELAY = 0.7             # delay (s) entre início do ataque e saíd
 ARCHER_DYING_TEXTURE = "texture/enemy-archer-dying/Dead.png"
 ARCHER_DYING_COLS = 5
 ARCHER_DYING_ANIMATION_SPEED = 4.0  # frames por segundo
+# Animação de corrida/fuga (enemy-archer-run): 1 linha, 6 colunas
+ARCHER_RUN_TEXTURE = "texture/enemy-archer-run/Evasion.png"
+ARCHER_RUN_COLS = 6
+ARCHER_RUN_ANIMATION_SPEED = 12.0   # frames por segundo
 # Tamanho do sprite (maior que o inimigo; mesma escala do jogador)
 ARCHER_OBJECT_SIZE_X = OBJECT_SIZE_X   # Metade da largura
 ARCHER_OBJECT_SIZE_Y = OBJECT_SIZE_Y   # Metade da altura
