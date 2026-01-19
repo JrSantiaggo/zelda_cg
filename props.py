@@ -150,8 +150,6 @@ def loadOBJ(fileName):
                     if len(parts) > 1:
                         mtl_file = parts[1]
                         materials = loadMTL(mtl_file, model_dir)
-                        if materials:
-                         
                 
                 # Usar material (usemtl)
                 elif parts[0] == 'usemtl':
