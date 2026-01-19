@@ -310,8 +310,8 @@ PROP_DEFINITIONS = {
         'model': "models/tree/Lowpoly_tree_sample.obj",
         'texture': None,  # Usar MTL do modelo
         'scale': (0.15, 0.15, 0.15),
-        'rotation': 0.0,  # Rotação padrão (pode ser sobrescrita)
-        'y_offset': 0.7,  # Offset do modelo (compensa Y=-0.7 do modelo)
+        'rotation': 0.0,  
+        'y_offset': 0.7,  
     },
     "tree_low": {
         'model': "models/treeLow/TreeLow.obj",
@@ -328,14 +328,7 @@ PROP_DEFINITIONS = {
         'rotation': 220.0,
         'y_offset': 2.0,
     },
-    # Adicione mais definições conforme necessário:
-    # "rock": {
-    #     'model': "models/rock/Rock1.obj",
-    #     'texture': None,
-    #     'scale': (0.3, 0.3, 0.3),
-    #     'rotation': 0.0,
-    #     'y_offset': 0.0,
-    # },
+
 }
 
 

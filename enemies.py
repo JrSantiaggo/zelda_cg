@@ -134,16 +134,8 @@ def respawn():
 
 
 def update(dt):
-    """
-    Atualiza lógica dos inimigos.
-    dt: delta time em segundos (frame-rate independent).
-    Área de detecção: quando o jogador entra no quadrado ao redor do inimigo, o inimigo segue o jogador.
-    Animação idle: avança enemy_animation_time (mesma lógica do player).
-    Durante o ataque: detecta acertos, aplica dano (ATTACK_DAMAGE) e remove mortos (hp <= 0).
-    Cada inimigo é atingido no máximo uma vez por ataque.
-    """
     global _hit_this_attack, enemy_animation_time
-    now = glfw.get_time()  # Para comparações em tempo absoluto (hit_feedback, dying, attacking)
+    now = glfw.get_time()
     enemy_animation_time += dt * config.ENEMY_IDLE_ANIMATION_SPEED
     if not player.is_attacking:
         _hit_this_attack.clear()
@@ -156,7 +148,6 @@ def update(dt):
                 if _aabb_overlap_xz(attack_box, get_hitbox(e)):
                     _hit_this_attack.add(id(e))
                     e["hp"] -= config.ATTACK_DAMAGE
-                    # Feedback visual: knockback + flash
                     dx, _, dz = _KNOCKBACK_DIR.get(
                         player.attack_direction, (0, 0, 0)
                     )
@@ -165,7 +156,6 @@ def update(dt):
                     e["hit_feedback_until"] = (
                         glfw.get_time() + config.HIT_FEEDBACK_DURATION
                     )
-    # Atualizar knockback (decai até 0 no fim da duração) e limpar estado
     dur = config.HIT_FEEDBACK_DURATION
     for e in enemies:
         if "hit_feedback_until" not in e:
@@ -177,7 +167,6 @@ def update(dt):
         t = (e["hit_feedback_until"] - now) / dur
         kbi = e["knockback_initial"]
         e["knockback"] = (kbi[0] * t, 0.0, kbi[2] * t)
-    # Seguir o jogador quando ele está na área de detecção (quadrado ao redor do inimigo)
     player_pos = player.getPosition()
     H = config.ENEMY_DETECTION_HALF_EXTENT
     for e in enemies:
@@ -192,13 +181,11 @@ def update(dt):
         dx = px - ex
         dz = pz - ez
         dist = math.sqrt(dx * dx + dz * dz)
-        if dist <= H:  # dentro do círculo de raio H (mesma área da luz spot no jogador)
+        if dist <= H:
             if dist <= config.ENEMY_ATTACK_RANGE:
-                # Ao alcance: para e ataca (cooldown 2 s); direção para o jogador
                 if abs(dx) >= abs(dz):
                     e["facing_right"] = (dx > 0)
                 if e.get("attack_cooldown_remaining", 0.0) <= 0.0:
-                    # Knockback: do inimigo para o jogador (empurra o jogador para longe)
                     player.take_damage(config.ENEMY_ATTACK_DAMAGE, (dx, dz))
                     e["attack_cooldown_remaining"] = config.ENEMY_ATTACK_COOLDOWN
                     e["attacking"] = True
@@ -208,10 +195,9 @@ def update(dt):
                 dz /= dist
                 if abs(dx) >= abs(dz):
                     e["facing_right"] = (dx > 0)
-                speed = config.ENEMY_MOVEMENT_SPEED  # tiles por segundo
+                speed = config.ENEMY_MOVEMENT_SPEED
                 new_x = ex + dx * speed * dt
                 new_z = ez + dz * speed * dt
-                # Mesma lógica do player: não sobe em plataformas (só por rampas), não desce (só por rampas)
                 current_y, current_on_ramp = _get_height_info(ex, ez)
                 target_y, target_on_ramp = _get_height_info(new_x, new_z)
                 height_diff = target_y - current_y
@@ -227,13 +213,11 @@ def update(dt):
                     e["position"] = glm.vec3(new_x, target_y, new_z)
                     e["is_moving"] = True
                     e["walking_time"] = e.get("walking_time", 0) + dt * config.ENEMY_WALKING_ANIMATION_SPEED
-    # Encerrar estado "attacking" quando a animação de ataque termina
     attack_dur = config.ENEMY_ATTACK_FRAMES / config.ENEMY_ATTACK_ANIMATION_SPEED
     for e in enemies:
         if "attacking_start" in e and (now - e["attacking_start"]) >= attack_dur:
             e.pop("attacking", None)
             e.pop("attacking_start", None)
-    # Inimigos com hp <= 0 entram em dying (animação de morte) antes de sumir
     for e in enemies:
         if e["hp"] <= 0 and "dying" not in e:
             e["dying"] = True
@@ -246,10 +230,6 @@ def update(dt):
 
 
 def render(modelMatrix_loc, cameraPos):
-    """
-    Renderiza todos os inimigos como sprites 2D com billboarding.
-    Usa textura completa (0,0)-(1,1). Desenho antes do jogador para ordem de profundidade.
-    """
     if not enemies:
         return
     glBindVertexArray(enemyMesh[0])
@@ -291,11 +271,9 @@ def render(modelMatrix_loc, cameraPos):
         modelMatrix = resources.calculateBillboardMatrix(
             glm.vec3(x, y, z), cameraPos
         )
-        # Espelhar quando andando ou atacando para esquerda (cima/baixo usam última direção em facing_right)
         if (e.get("is_moving") or e.get("attacking")) and not e.get("facing_right", True):
             modelMatrix = glm.scale(modelMatrix, glm.vec3(-1.0, 1.0, 1.0))
         glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(modelMatrix))
-        # Flash: 1 no início, 0 no fim da duração (não em dying)
         if "hit_feedback_until" in e and sprite_hit_flash_loc != -1:
             t = max(0.0, (e["hit_feedback_until"] - now) / dur)
             glUniform1f(sprite_hit_flash_loc, t)
@@ -310,32 +288,20 @@ def get_enemies():
 
 
 def _display_position(enemy):
-    """Posição para render e hitbox: base + knockback (quando em feedback)."""
     p = enemy["position"]
     kb = enemy.get("knockback", (0.0, 0.0, 0.0))
     return (p.x + kb[0], p.y + kb[1], p.z + kb[2])
 
 
 def get_hitbox(enemy):
-    """
-    Retorna a hitbox AABB no plano XZ do inimigo: (min_x, max_x, min_z, max_z).
-    Usa posição de exibição (com knockback) para consistência visual.
-    """
     x, _, z = _display_position(enemy)
     h = config.ENEMY_HITBOX_HALF_EXTENT
     return (x - h, x + h, z - h, z + h)
 
 
 def get_enemies_hit_this_attack():
-    """
-    Retorna a lista de inimigos atingidos no ataque atual.
-    Cada inimigo aparece no máximo uma vez por ataque.
-    Lista é limpa quando o ataque termina (is_attacking = False).
-    Útil para debug e, no futuro, aplicar dano.
-    """
     return [e for e in enemies if id(e) in _hit_this_attack]
 
 
 def was_hit_this_attack(enemy):
-    """True se o inimigo foi atingido no ataque atual (máx. 1x por ataque)."""
     return id(enemy) in _hit_this_attack
