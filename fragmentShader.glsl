@@ -1,6 +1,7 @@
 #version 330 core
 
 uniform sampler2D myTexture;
+uniform sampler2D shadowMap;     // Mapa de profundidade da luz (shadow mapping)
 uniform vec3 objectColor;  // Cor do objeto (para debug quando não há textura)
 uniform bool useColor;    // Se true, usa cor ao invés de textura
 uniform vec3 ambientLight; // Cor/intensidade da luz ambiente global (R, G, B)
@@ -15,10 +16,14 @@ uniform vec3 specularColor; // Cor do brilho especular (R, G, B)
 uniform vec3 playerPos;   // Posição do jogador (centro da luz spot)
 uniform float spotlightRadius;   // Raio do spot (= ENEMY_DETECTION_HALF_EXTENT)
 uniform float spotlightDarkFactor; // Escurecimento fora do spot (0.25 = 25%)
+uniform bool useShadowMapping;  // Ativa/desativa shadow mapping (config)
+uniform float shadowBias;       // Bias para reduzir acne na sombra
+uniform float shadowStrength;   // Intensidade da sombra (0–1)
 
 in vec2 texCoord;
 in vec3 normal;           // Normal no espaço do mundo (já transformada e normalizada)
 in vec3 fragPos;          // Posição do fragmento no espaço do mundo (para iluminação futura)
+in vec4 fragPosLightSpace; // Posição no espaço da luz (para shadow mapping)
 
 out vec4 finalColor;
 
@@ -83,11 +88,30 @@ void main(){
         float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
         vec3 specular = spec * specularStrength * specularColor;
         
-        // Iluminação Phong completa:
-        // - Ambiente: iluminação base uniforme
-        // - Difusa: variação com o ângulo da luz (modelo de Lambert)
-        // - Especular: brilho que varia com o ângulo de visão (modelo de Phong)
-        finalColorRGB = baseColor * (ambientLight + diffuse) + specular;
+        // Shadow mapping: PCF 3x3 (apenas se useShadowMapping ativo)
+        float shadowFactor = 1.0;
+        if (useShadowMapping) {
+            float shadow = 0.0;
+            vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
+            projCoords = projCoords * 0.5 + 0.5;
+            if (projCoords.z <= 1.0) {
+                vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0));
+                for (int x = -1; x <= 1; ++x)
+                    for (int y = -1; y <= 1; ++y) {
+                        float pcfDepth = texture(shadowMap, projCoords.xy + vec2(float(x), float(y)) * texelSize).r;
+                        shadow += (projCoords.z - shadowBias > pcfDepth) ? 1.0 : 0.0;
+                    }
+                shadow /= 9.0;
+            }
+            shadowFactor = 1.0 - shadow * shadowStrength;
+        }
+
+        // Iluminação Phong completa: ambiente + (difusa + especular) atenuados pela sombra
+        // - Ambiente: iluminação base uniforme (não recebe sombra)
+        // - Difusa + Especular: reduzem quando em sombra
+        vec3 direct = baseColor * diffuse + specular;
+        direct *= shadowFactor;
+        finalColorRGB = baseColor * ambientLight + direct;
 
         // Luz spot ao redor do jogador: fora do raio o mapa fica mais escuro (mesmo raio da detecção do inimigo)
         float dist_xz = length(fragPos.xz - playerPos.xz);

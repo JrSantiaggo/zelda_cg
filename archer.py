@@ -24,7 +24,6 @@ archers = []
 arrows = []  # {position, velocity: (dx, dz), spawn_pos}
 archer_animation_time = 0.0
 archer_run_animation_time = 0.0
-_last_update_time = 0.0
 
 H = config.ENEMY_DETECTION_HALF_EXTENT  # raio do spot = detecção
 FLEE_D = config.ARCHER_FLEE_DISTANCE    # metade: abaixo disso foge
@@ -124,20 +123,37 @@ def init(geometry_module):
         })
 
 
-def update(window):
+def respawn():
+    """
+    Respawna os arqueiros e limpa as flechas (usado ao reiniciar o jogo).
+    Não recarrega malhas/texturas.
+    """
+    global archers, arrows
+    cfg = map.get_enemy_spawn_config()
+    archers = []
+    arrows = []
+    for x, z in cfg["archer"]:
+        y = _height_at(x, z)
+        archers.append({
+            "position": glm.vec3(x, y, z),
+            "hp": config.ARCHER_MAX_HP,
+            "shoot_cooldown_remaining": 0.0,
+            "facing_right": True,
+            "attack_remaining": 0.0,
+        })
+
+
+def update(dt):
     """
     Detecção = luz spot (raio H). Se dist <= FLEE_D (metade), foge.
     Se dist <= H e não em fuga: atira (cooldown). Flechas: movem, atingem player (dano = ENEMY_ATTACK_DAMAGE) e somem.
     Arqueiros podem ser atacados pela espada (como inimigos): dano, knockback, flash; hp <= 0 remove.
+    dt: delta time em segundos (frame-rate independent).
     """
-    global _last_update_time, archer_animation_time, archer_run_animation_time, arrows, _hit_this_attack_archer
-    now = glfw.get_time()
-    if _last_update_time == 0.0:
-        _last_update_time = now
-    delta = now - _last_update_time
-    _last_update_time = now
-    archer_animation_time += delta * config.ARCHER_IDLE_ANIMATION_SPEED
-    archer_run_animation_time += delta * config.ARCHER_RUN_ANIMATION_SPEED
+    global archer_animation_time, archer_run_animation_time, arrows, _hit_this_attack_archer
+    now = glfw.get_time()  # Para comparações em tempo absoluto (hit_feedback, dying)
+    archer_animation_time += dt * config.ARCHER_IDLE_ANIMATION_SPEED
+    archer_run_animation_time += dt * config.ARCHER_RUN_ANIMATION_SPEED
 
     pp = player.getPosition()
     px, pz = pp.x, pp.z
@@ -179,8 +195,8 @@ def update(window):
         a["knockback"] = (kbi[0] * t, 0.0, kbi[2] * t)
 
     for a in archers:
-        a["shoot_cooldown_remaining"] = max(0.0, a.get("shoot_cooldown_remaining", 0.0) - delta)
-        a["attack_remaining"] = max(0.0, a.get("attack_remaining", 0.0) - delta)
+        a["shoot_cooldown_remaining"] = max(0.0, a.get("shoot_cooldown_remaining", 0.0) - dt)
+        a["attack_remaining"] = max(0.0, a.get("attack_remaining", 0.0) - dt)
         ax, ay, az = a["position"].x, a["position"].y, a["position"].z
         dx = px - ax
         dz = pz - az
@@ -197,9 +213,9 @@ def update(window):
                     dz /= dist
                     flee_dx = -dx
                     flee_dz = -dz
-                    spd = config.ARCHER_FLEE_SPEED
-                    nx = ax + flee_dx * spd
-                    nz = az + flee_dz * spd
+                    spd = config.ARCHER_FLEE_SPEED  # tiles por segundo
+                    nx = ax + flee_dx * spd * dt
+                    nz = az + flee_dz * spd * dt
                     # Mesma lógica do player: não sobe em plataformas (só por rampas), não desce (só por rampas)
                     current_y, current_on_ramp = _get_height_info(ax, az)
                     target_y, target_on_ramp = _get_height_info(nx, nz)
@@ -213,8 +229,11 @@ def update(window):
                     else:
                         allow = True
                     if allow:
-                        a["position"] = glm.vec3(nx, target_y, nz)
-                        a["facing_right"] = (flee_dx > 0)
+                        # Bloquear movimento para água e tiles sólidos inválidos (igual ao jogador)
+                        tile_collision = map.checkTileCollision(nx, nz, config.ENEMY_HITBOX_HALF_EXTENT, target_y)
+                        if not tile_collision:
+                            a["position"] = glm.vec3(nx, target_y, nz)
+                            a["facing_right"] = (flee_dx > 0)
             elif dist <= H:
                 a["fleeing"] = False
                 # Dentro do spot: atira (com cooldown); encara o jogador
@@ -238,7 +257,7 @@ def update(window):
         # Flecha agendada: após o delay, spawna (sincroniza com o frame da animação)
         pa = a.get("pending_arrow")
         if pa:
-            pa["delay"] -= delta
+            pa["delay"] -= dt
             if pa["delay"] <= 0.0:
                 vx, vz = pa["velocity"]
                 sx, sy, sz = pa["spawn_pos"]
@@ -250,19 +269,20 @@ def update(window):
                 del a["pending_arrow"]
 
     # Mover flechas, colisão com jogador, remover se acertou ou longe
-    spd = config.ARCHER_ARROW_SPEED
+    spd = config.ARCHER_ARROW_SPEED  # tiles por segundo
     hit_r = config.ARCHER_ARROW_HIT_RADIUS
     to_remove = []
     for i, arr in enumerate(arrows):
         vx, vz = arr["velocity"]
         p = arr["position"]
-        arr["position"] = glm.vec3(p.x + vx * spd, p.y, p.z + vz * spd)
+        arr["position"] = glm.vec3(p.x + vx * spd * dt, p.y, p.z + vz * spd * dt)
         ax, az = arr["position"].x, arr["position"].z
         # Acertou o jogador? Só se dist < hit_r E a flecha não passou (player ainda "à frente")
         d = math.sqrt((px - ax) ** 2 + (pz - az) ** 2)
         to_player_dot = (px - ax) * vx + (pz - az) * vz  # < 0 = já passou
         if d < hit_r and to_player_dot >= -0.05:
-            player.take_damage(config.ENEMY_ATTACK_DAMAGE)
+            # Knockback: direção da velocidade da flecha (empurra o jogador na direção do tiro)
+            player.take_damage(config.ENEMY_ATTACK_DAMAGE, tuple(arr["velocity"]))
             to_remove.append(i)
             continue
         # Longe do spawn?

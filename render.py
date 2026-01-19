@@ -1,6 +1,8 @@
 """
 Módulo de renderização: função principal de renderização da cena
+Inclui shadow mapping (pass de profundidade + amostragem no fragment).
 """
+import os
 from OpenGL.GL import *
 import glm
 import math
@@ -10,40 +12,131 @@ import map
 import props
 import enemies
 import archer
+import resources
 
 # Quad 2D para HUD (barra de vida); criado em init(geometry)
 _hud_quad = None
+# Shadow mapping: FBO, textura de profundidade e shader do depth pass
+_shadow_fbo = None
+_shadow_depth_tex = None
+_depth_shader_id = None
+# Lua (easter egg Zelda / Majora's Mask) — canto sup. direito do mapa (meta), fora dos tiles
+_moon_texture = None
+_moon_mesh = None
+# Posição no mundo: à direita da meta (mapa 80x40, offset -20,-20; tiles até ~x=59, z=-20)
+# Colocada no "céu" (y alto), fora da área de tiles
+MOON_WORLD_POS = (56.0, 00.0, -20.0)
 
 
-def init(geometry_module):
-    """Inicializa recursos do render (ex.: quad da HUD)."""
-    global _hud_quad
+def init(geometry_module, depth_shader_id):
+    """Inicializa recursos do render (HUD, FBO e textura de shadow map)."""
+    global _hud_quad, _shadow_fbo, _shadow_depth_tex, _depth_shader_id, _moon_texture, _moon_mesh
     _hud_quad = geometry_module.createScreenQuad()
+    _depth_shader_id = depth_shader_id
+
+    # Carregar textura e malha da lua (easter egg estilo Zelda / Majora's Mask)
+    here = os.path.dirname(os.path.abspath(__file__))
+    moon_path = os.path.join(here, "moon.png")
+    if os.path.exists(moon_path):
+        try:
+            _moon_texture = resources.loadTexture(moon_path)
+            _moon_mesh = geometry_module.createSpriteMesh(2.0, 2.0)  # 4x4 unidades
+        except Exception:
+            _moon_texture = None
+            _moon_mesh = None
+    else:
+        _moon_texture = None
+        _moon_mesh = None
+
+    # FBO e textura de profundidade para shadow mapping
+    sz = config.SHADOW_MAP_SIZE
+    _shadow_fbo = glGenFramebuffers(1)
+    _shadow_depth_tex = glGenTextures(1)
+    glBindTexture(GL_TEXTURE_2D, _shadow_depth_tex)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, sz, sz, 0, GL_DEPTH_COMPONENT, GL_FLOAT, None)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER)
+    border = [1.0, 1.0, 1.0, 1.0]
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, border)
+    glBindFramebuffer(GL_FRAMEBUFFER, _shadow_fbo)
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, _shadow_depth_tex, 0)
+    glDrawBuffer(GL_NONE)
+    glReadBuffer(GL_NONE)
+    if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE:
+        raise RuntimeError("Shadow FBO incompleto")
+    glBindFramebuffer(GL_FRAMEBUFFER, 0)
+    glBindTexture(GL_TEXTURE_2D, 0)
 
 
 def render(shaderId, resolution):
     """
-    Renderiza toda a cena (cenário e jogador).
-    
-    Args:
-        shaderId: Identificador do shader program
-        resolution: Lista [width, height] da resolução da janela
+    Renderiza toda a cena: depth pass (shadow map) e main pass com sombras.
     """
-    # Procedimentos iniciais de limpeza da tela e do depth buffer
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    glViewport(0, 0, resolution[0], resolution[1])
+    # ---- Dados comuns: jogador, câmera e matriz da luz ----
+    playerPos = player.getPosition()
+    camera_offset = glm.vec3(*config.CAMERA_POSITION)
+    cameraPos = glm.vec3(
+        playerPos.x + camera_offset.x, camera_offset.y, playerPos.z + camera_offset.z
+    )
+    cameraTarget = glm.vec3(playerPos.x, playerPos.y, playerPos.z)
 
-    # Ativar shader (compartilhado por todos os objetos)
+    if config.SHADOW_MAPPING_ENABLED:
+        dd = config.DIRECTIONAL_LIGHT_DIRECTION
+        ln = math.sqrt(dd[0] ** 2 + dd[1] ** 2 + dd[2] ** 2) or 1.0
+        light_dir = (dd[0] / ln, dd[1] / ln, dd[2] / ln)
+        center = glm.vec3(0.0, 5.0, 0.0)
+        light_eye = center + glm.vec3(light_dir[0], light_dir[1], light_dir[2]) * 50.0
+        light_view = glm.lookAt(light_eye, center, glm.vec3(0, 1, 0))
+        osz = config.SHADOW_ORTHO_SIZE
+        light_proj = glm.ortho(-osz, osz, -osz, osz, config.SHADOW_NEAR, config.SHADOW_FAR)
+        light_space = light_proj * light_view
+        # Depth pass: renderizar cena do ponto de vista da luz
+        glViewport(0, 0, config.SHADOW_MAP_SIZE, config.SHADOW_MAP_SIZE)
+        glBindFramebuffer(GL_FRAMEBUFFER, _shadow_fbo)
+        glClear(GL_DEPTH_BUFFER_BIT)
+        glUseProgram(_depth_shader_id)
+        d_model = glGetUniformLocation(_depth_shader_id, "modelMatrix")
+        d_light = glGetUniformLocation(_depth_shader_id, "lightSpaceMatrix")
+        glUniformMatrix4fv(d_light, 1, GL_FALSE, glm.value_ptr(light_space))
+        map.renderPlatforms(d_model)
+        map.renderRamps(d_model)
+        props.render(d_model)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        glViewport(0, 0, resolution[0], resolution[1])
+    else:
+        light_space = glm.mat4(1.0)
+
+    # ---- Main pass ----
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     glUseProgram(shaderId)
     glActiveTexture(GL_TEXTURE0)
-    
-    # Obter localizações dos uniforms (uma vez por frame)
-    myTexture_loc = glGetUniformLocation(shaderId, 'myTexture')
-    modelMatrix_loc = glGetUniformLocation(shaderId, 'modelMatrix')
-    viewMatrix_loc = glGetUniformLocation(shaderId, 'viewMatrix')
-    projectionMatrix_loc = glGetUniformLocation(shaderId, 'projectionMatrix')
-    
+
+    myTexture_loc = glGetUniformLocation(shaderId, "myTexture")
+    modelMatrix_loc = glGetUniformLocation(shaderId, "modelMatrix")
+    viewMatrix_loc = glGetUniformLocation(shaderId, "viewMatrix")
+    projectionMatrix_loc = glGetUniformLocation(shaderId, "projectionMatrix")
+    light_space_loc = glGetUniformLocation(shaderId, "lightSpaceMatrix")
+    shadow_map_loc = glGetUniformLocation(shaderId, "shadowMap")
+    use_shadow_loc = glGetUniformLocation(shaderId, "useShadowMapping")
+    shadow_bias_loc = glGetUniformLocation(shaderId, "shadowBias")
+    shadow_strength_loc = glGetUniformLocation(shaderId, "shadowStrength")
+
     glUniform1i(myTexture_loc, 0)
+    if light_space_loc != -1:
+        glUniformMatrix4fv(light_space_loc, 1, GL_FALSE, glm.value_ptr(light_space))
+    if use_shadow_loc != -1:
+        glUniform1i(use_shadow_loc, 1 if config.SHADOW_MAPPING_ENABLED else 0)
+    if shadow_map_loc != -1 and config.SHADOW_MAPPING_ENABLED:
+        glActiveTexture(GL_TEXTURE1)
+        glBindTexture(GL_TEXTURE_2D, _shadow_depth_tex)
+        glUniform1i(shadow_map_loc, 1)
+        glActiveTexture(GL_TEXTURE0)
+    if shadow_bias_loc != -1:
+        glUniform1f(shadow_bias_loc, config.SHADOW_BIAS)
+    if shadow_strength_loc != -1:
+        glUniform1f(shadow_strength_loc, config.SHADOW_STRENGTH)
     
     # Inicializar uniforms de cor (para props sem textura)
     use_color_loc = glGetUniformLocation(shaderId, 'useColor')
@@ -101,33 +194,7 @@ def render(shaderId, resolution):
     if sprite_hit_flash_loc != -1:
         glUniform1f(sprite_hit_flash_loc, 0.0)
     
-    # ===== CALCULAR POSIÇÃO DA CÂMERA SEGUINDO O JOGADOR =====
-    # Obter posição atual do jogador
-    playerPos = player.getPosition()
-    
-    # Offset fixo da câmera relativo ao jogador
-    # Mantém a mesma distância e ângulo que config.CAMERA_POSITION tinha em relação à origem
-    # Offset atual: (0.0, 12.0, 8.0) em relação à origem, agora será em relação ao jogador
-    camera_offset = glm.vec3(*config.CAMERA_POSITION)  # Offset fixo (0.0, 12.0, 8.0)
-    
-    # Calcular posição da câmera: posição do jogador + offset fixo
-    # Como o offset original era (0, 12, 8) em relação à origem, usamos ele diretamente
-    # mas aplicamos em relação ao jogador no plano XZ (mantendo Y fixo da câmera)
-    cameraPos = glm.vec3(
-        playerPos.x + camera_offset.x,  # X do jogador + offset X (0.0)
-        camera_offset.y,                 # Y fixo da câmera (12.0) - altura da câmera
-        playerPos.z + camera_offset.z   # Z do jogador + offset Z (8.0)
-    )
-    
-    # Calcular target da câmera: câmera sempre olha para o jogador
-    # O target é a posição do jogador (mantendo altura Y do jogador para olhar corretamente)
-    cameraTarget = glm.vec3(
-        playerPos.x,                     # X do jogador
-        playerPos.y,                     # Y do jogador (para olhar na altura correta)
-        playerPos.z                      # Z do jogador
-    )
-    
-    # Matriz de visão (View Matrix) - compartilhada por todos os objetos
+    # Matriz de visão (View Matrix) - compartilhada por todos os objetos (cameraPos/cameraTarget já calculados no início)
     # Câmera segue o jogador mantendo offset fixo
     viewMatrix = glm.lookAt(
         cameraPos,                       # Posição da câmera (seguindo jogador com offset)
@@ -178,6 +245,20 @@ def render(shaderId, resolution):
     map.renderPlatforms(modelMatrix_loc)
     map.renderRamps(modelMatrix_loc)
     props.render(modelMatrix_loc)  # Renderizar props (objetos 3D decorativos)
+    # Lua (easter egg Zelda) — canto sup. direito do mapa (meta), fora dos tiles, no céu
+    if _moon_texture is not None and _moon_mesh is not None:
+        if use_color_loc != -1:
+            glUniform1i(use_color_loc, 0)
+        if is_sprite_loc != -1:
+            glUniform1i(is_sprite_loc, 1)
+        glBindTexture(GL_TEXTURE_2D, _moon_texture)
+        moon_pos = glm.vec3(*MOON_WORLD_POS)
+        model_moon = resources.calculateBillboardMatrix(moon_pos, cameraPos)
+        glBindVertexArray(_moon_mesh[0])
+        glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_moon))
+        glDrawArrays(GL_TRIANGLES, 0, _moon_mesh[1])
+        if is_sprite_loc != -1:
+            glUniform1i(is_sprite_loc, 0)
     enemies.render(modelMatrix_loc, cameraPos)  # Inimigos (sprites, alvos de teste)
     archer.render(modelMatrix_loc, cameraPos)   # Arqueiros (separado; futuramente flechas)
     # Renderizar jogador (que usa sprite sheet - não recebe iluminação ambiente)
@@ -219,6 +300,21 @@ def render(shaderId, resolution):
         model_fill = glm.translate(glm.mat4(1.0), glm.vec3(22.0, 22.0, 0.0))
         model_fill = glm.scale(model_fill, glm.vec3(fill_w, 20.0, 1.0))
         glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_fill))
+        glDrawArrays(GL_TRIANGLES, 0, _hud_quad[1])
+        # Barra de estamina (boost): amarela, ao lado da vida; drena no boost, recarrega no cooldown
+        stamina_fill = player.get_stamina_fill()
+        if object_color_loc != -1:
+            glUniform3f(object_color_loc, 0.28, 0.26, 0.12)
+        model_stam_bg = glm.translate(glm.mat4(1.0), glm.vec3(244.0, 20.0, 0.0))
+        model_stam_bg = glm.scale(model_stam_bg, glm.vec3(204.0, 24.0, 1.0))
+        glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_stam_bg))
+        glDrawArrays(GL_TRIANGLES, 0, _hud_quad[1])
+        stam_fill_w = 200.0 * max(0.0, min(1.0, stamina_fill))
+        if object_color_loc != -1:
+            glUniform3f(object_color_loc, 0.95, 0.88, 0.2)
+        model_stam_fill = glm.translate(glm.mat4(1.0), glm.vec3(246.0, 22.0, 0.0))
+        model_stam_fill = glm.scale(model_stam_fill, glm.vec3(stam_fill_w, 20.0, 1.0))
+        glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(model_stam_fill))
         glDrawArrays(GL_TRIANGLES, 0, _hud_quad[1])
         glEnable(GL_DEPTH_TEST)
 

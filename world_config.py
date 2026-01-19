@@ -170,7 +170,7 @@ TILE_DEFINITIONS = {
         'scale_z': TILE_SIZE,
     },
     TILE_TYPE_WATER: {
-        'height': -0.10,  # Superfície rebaixada (depressão) em relação ao piso — impressão de profundidade
+        'height': -0.20,  # Superfície rebaixada (depressão) em relação ao piso — impressão de profundidade
         'texture': "texture/water/water.jpg",
         'is_solid': False,
         'is_liquid': True,  # Bloqueia movimento (não atravessável), independente de is_solid
@@ -255,7 +255,7 @@ SCALE_FLOOR_TILE = (TILE_SIZE_VISUAL, FLOOR_TILE_HEIGHT, TILE_SIZE_VISUAL)
 SCALE_BLOCK_LOW = (1.0, BLOCK_HEIGHT_HALF, 1.0)
 SCALE_BLOCK_STANDARD = (1.0, BLOCK_HEIGHT_FULL, 1.0)
 SCALE_BUSH_BLOCK = (1.0, BLOCK_HEIGHT_PILLAR, 1.0)
-SCALE_PILLAR = (0.8, BLOCK_HEIGHT_PILLAR, 0.8)
+SCALE_PILLAR = (0.8, BLOCK_HEIGHT_PILLAR, 1.8)
 SCALE_WALL_LOW = (1.0, WALL_HEIGHT_LOW, 0.5)
 SCALE_WALL_HIGH = (0.5, WALL_HEIGHT_HIGH, 1.0)
 

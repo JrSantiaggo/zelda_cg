@@ -3,6 +3,7 @@
 uniform mat4 modelMatrix;
 uniform mat4 viewMatrix;
 uniform mat4 projectionMatrix;
+uniform mat4 lightSpaceMatrix;  // Projeção da luz (shadow mapping)
 uniform vec2 spriteOffset;  // Offset do sprite sheet (coluna, linha)
 uniform vec2 spriteSize;     // Tamanho de cada sprite (1/cols, 1/rows)
 
@@ -13,6 +14,7 @@ layout(location = 2) in vec3 a_normal;  // Normal do vértice (para iluminação
 out vec2 texCoord;
 out vec3 normal;           // Normal no espaço do mundo (para iluminação futura)
 out vec3 fragPos;          // Posição do fragmento no espaço do mundo (para iluminação futura)
+out vec4 fragPosLightSpace; // Posição no espaço da luz (para shadow mapping)
 
 void main(){
     // Calcular coordenadas UV do sprite sheet
@@ -23,6 +25,7 @@ void main(){
     // Calcular posição do vértice no espaço do mundo
     vec4 worldPos = modelMatrix * vec4(a_pos, 1.0);
     fragPos = vec3(worldPos);
+    fragPosLightSpace = lightSpaceMatrix * worldPos;
     
     // Transformar normal para espaço do mundo
     // Usar matriz normal (inversa transposta da modelMatrix) para normais

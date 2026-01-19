@@ -27,9 +27,8 @@ enemyWalkingTextures = []
 enemyAttackTextures = []
 # Sequência de texturas dying: Minotaur_03_Dying_000.png a _014.png
 enemyDyingTextures = []
-# Tempo de animação idle e último update (mesma lógica do player)
+# Tempo de animação idle (delta time vem do main)
 enemy_animation_time = 0.0
-_last_update_time = 0.0
 # Lista de inimigos: cada um é {"position": glm.vec3, "hp": int}
 enemies = []
 # IDs dos inimigos atingidos no ataque atual (máx. 1x por ataque); limpa quando o ataque termina.
@@ -117,21 +116,35 @@ def init(geometry_module):
         })
 
 
-def update(window):
+def respawn():
+    """
+    Respawna os inimigos melee nas posições do mapa (usado ao reiniciar o jogo).
+    Não recarrega malhas/texturas.
+    """
+    global enemies
+    cfg = map.get_enemy_spawn_config()
+    enemies = []
+    for x, z in cfg["melee"]:
+        y = _height_at(x, z)
+        enemies.append({
+            "position": glm.vec3(x, y, z),
+            "hp": config.ENEMY_MAX_HP,
+            "facing_right": True,
+        })
+
+
+def update(dt):
     """
     Atualiza lógica dos inimigos.
+    dt: delta time em segundos (frame-rate independent).
     Área de detecção: quando o jogador entra no quadrado ao redor do inimigo, o inimigo segue o jogador.
     Animação idle: avança enemy_animation_time (mesma lógica do player).
     Durante o ataque: detecta acertos, aplica dano (ATTACK_DAMAGE) e remove mortos (hp <= 0).
     Cada inimigo é atingido no máximo uma vez por ataque.
     """
-    global _hit_this_attack, _last_update_time, enemy_animation_time
-    now = glfw.get_time()
-    if _last_update_time == 0.0:
-        _last_update_time = now
-    delta = now - _last_update_time
-    _last_update_time = now
-    enemy_animation_time += delta * config.ENEMY_IDLE_ANIMATION_SPEED
+    global _hit_this_attack, enemy_animation_time
+    now = glfw.get_time()  # Para comparações em tempo absoluto (hit_feedback, dying, attacking)
+    enemy_animation_time += dt * config.ENEMY_IDLE_ANIMATION_SPEED
     if not player.is_attacking:
         _hit_this_attack.clear()
     else:
@@ -169,7 +182,7 @@ def update(window):
     H = config.ENEMY_DETECTION_HALF_EXTENT
     for e in enemies:
         e["is_moving"] = False
-        e["attack_cooldown_remaining"] = max(0.0, e.get("attack_cooldown_remaining", 0.0) - delta)
+        e["attack_cooldown_remaining"] = max(0.0, e.get("attack_cooldown_remaining", 0.0) - dt)
         if e.get("dying"):
             continue
         if "hit_feedback_until" in e and now < e["hit_feedback_until"]:
@@ -185,7 +198,8 @@ def update(window):
                 if abs(dx) >= abs(dz):
                     e["facing_right"] = (dx > 0)
                 if e.get("attack_cooldown_remaining", 0.0) <= 0.0:
-                    player.take_damage(config.ENEMY_ATTACK_DAMAGE)
+                    # Knockback: do inimigo para o jogador (empurra o jogador para longe)
+                    player.take_damage(config.ENEMY_ATTACK_DAMAGE, (dx, dz))
                     e["attack_cooldown_remaining"] = config.ENEMY_ATTACK_COOLDOWN
                     e["attacking"] = True
                     e["attacking_start"] = now
@@ -194,9 +208,9 @@ def update(window):
                 dz /= dist
                 if abs(dx) >= abs(dz):
                     e["facing_right"] = (dx > 0)
-                speed = config.ENEMY_MOVEMENT_SPEED
-                new_x = ex + dx * speed
-                new_z = ez + dz * speed
+                speed = config.ENEMY_MOVEMENT_SPEED  # tiles por segundo
+                new_x = ex + dx * speed * dt
+                new_z = ez + dz * speed * dt
                 # Mesma lógica do player: não sobe em plataformas (só por rampas), não desce (só por rampas)
                 current_y, current_on_ramp = _get_height_info(ex, ez)
                 target_y, target_on_ramp = _get_height_info(new_x, new_z)
@@ -212,7 +226,7 @@ def update(window):
                 if allow:
                     e["position"] = glm.vec3(new_x, target_y, new_z)
                     e["is_moving"] = True
-                    e["walking_time"] = e.get("walking_time", 0) + delta * config.ENEMY_WALKING_ANIMATION_SPEED
+                    e["walking_time"] = e.get("walking_time", 0) + dt * config.ENEMY_WALKING_ANIMATION_SPEED
     # Encerrar estado "attacking" quando a animação de ataque termina
     attack_dur = config.ENEMY_ATTACK_FRAMES / config.ENEMY_ATTACK_ANIMATION_SPEED
     for e in enemies:

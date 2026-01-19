@@ -32,8 +32,14 @@ attack_direction = 3          # Direção travada no início do ataque (respeita
 attack_cooldown_remaining = 0.0  # Tempo restante de recarga (0 = pode atacar)
 
 was_pressing_space = False  # Estado anterior da tecla espaço (para detectar apenas quando pressionada)
-last_update_time = 0.0
+boost_remaining = 0.0       # Reserva de boost em segundos (só drena enquanto Ctrl segurado)
+boost_cooldown_remaining = 0.0  # Cooldown após esgotar a reserva; ao acabar, recarrega
 was_moving = False  # Estado anterior de movimento (para detectar transições)
+
+# Feedback visual ao sofrer dano (igual aos inimigos: flash + knockback)
+hit_feedback_until = 0.0    # glfw.get_time() até quando mostrar o flash; 0 = inativo
+knockback_initial = (0.0, 0.0, 0.0)  # (dx, 0, dz) no início do feedback
+knockback = (0.0, 0.0, 0.0)  # knockback atual (decai até 0)
 
 
 def init(geometry_module):
@@ -44,9 +50,12 @@ def init(geometry_module):
         geometry_module: Módulo geometry para criar malhas
     """
     global playerMesh, playerTexture, playerIdleTexture, playerAttackTexture, playerRunAttackTexture, hp
+    global boost_remaining, boost_cooldown_remaining
     import os
 
     hp = config.PLAYER_MAX_HP
+    boost_remaining = config.BOOST_DURATION
+    boost_cooldown_remaining = 0.0
     here = os.path.dirname(os.path.abspath(__file__))
     playerMesh = geometry_module.createSpriteMesh()
     playerTexture = resources.loadTexture(os.path.join(here, config.TEXTURE_FILE))
@@ -55,14 +64,35 @@ def init(geometry_module):
     playerRunAttackTexture = resources.loadTexture(os.path.join(here, "texture/player2/Swordsman_lvl3_Run_Attack_with_shadow.png"))
 
 
-def update(window):
+def update(window, dt):
     """
     Atualiza a lógica do jogador (movimentação e input).
     Inclui verificação de colisão com tiles sólidos do mapa.
+    dt: delta time em segundos (frame-rate independent).
     """
     global position, animation_time, current_direction, is_moving, is_attacking, attack_animation_time
     global attack_direction, attack_cooldown_remaining
-    
+    global boost_remaining, boost_cooldown_remaining
+    global hit_feedback_until, knockback_initial, knockback
+
+    # Decaimento do knockback e fim do feedback visual (igual aos inimigos)
+    now = glfw.get_time()
+    dur = config.HIT_FEEDBACK_DURATION
+    if hit_feedback_until > 0.0:
+        if now >= hit_feedback_until:
+            hit_feedback_until = 0.0
+            knockback_initial = (0.0, 0.0, 0.0)
+            knockback = (0.0, 0.0, 0.0)
+        else:
+            t = (hit_feedback_until - now) / dur
+            knockback = (knockback_initial[0] * t, 0.0, knockback_initial[2] * t)
+
+    # Ctrl segurado = boost ativo (enquanto houver reserva); só drena com a tecla pressionada
+    ctrl_pressed = (
+        glfw.get_key(window, glfw.KEY_LEFT_CONTROL) == glfw.PRESS
+        or glfw.get_key(window, glfw.KEY_RIGHT_CONTROL) == glfw.PRESS
+    )
+
     moveX = 0.0
     moveZ = 0.0
     
@@ -105,10 +135,15 @@ def update(window):
                 current_direction = 1  # Direita (RIGHT) - era 2, agora 1
         
         is_moving = True
-        
-        # Calcular posição alvo
-        target_x = position.x + moveX * config.MOVEMENT_SPEED
-        target_z = position.z + moveZ * config.MOVEMENT_SPEED
+
+        # Velocidade: boost só enquanto Ctrl segurado e houver reserva
+        effective_speed = config.MOVEMENT_SPEED * (
+            config.BOOST_SPEED_MULTIPLIER if (ctrl_pressed and boost_remaining > 0.0) else 1.0
+        )
+
+        # Calcular posição alvo (effective_speed em tiles/segundo; × dt)
+        target_x = position.x + moveX * effective_speed * dt
+        target_z = position.z + moveZ * effective_speed * dt
         
         # Verificar colisão com tiles sólidos
         # Usar raio do jogador baseado no tamanho do sprite (metade da largura)
@@ -264,50 +299,53 @@ def update(window):
     was_pressing_space = space_pressed
     
     # ===== ATUALIZAR ANIMAÇÃO =====
-    # Atualizar tempo de animação baseado no estado de movimento
-    global last_update_time, was_moving, last_direction
-    current_time = glfw.get_time()
-    
-    if last_update_time == 0.0:
-        last_update_time = current_time
-    
-    delta_time = current_time - last_update_time
-    last_update_time = current_time
-    
+    # Atualizar tempo de animação baseado no estado de movimento (dt = delta time)
+    global was_moving, last_direction
+
     # Atualizar estado de ataque (duração fixa) e cooldown
     if is_attacking:
-        attack_animation_time += delta_time
+        attack_animation_time += dt
         if attack_animation_time >= config.ATTACK_DURATION:
             is_attacking = False
             attack_animation_time = 0.0
             attack_cooldown_remaining = config.ATTACK_COOLDOWN
             animation_time = 0.0
     elif attack_cooldown_remaining > 0.0:
-        attack_cooldown_remaining = max(0.0, attack_cooldown_remaining - delta_time)
+        attack_cooldown_remaining = max(0.0, attack_cooldown_remaining - dt)
+
+    # Boost (Ctrl): só drena enquanto a tecla está pressionada; ao esgotar, cooldown 4 s e recarrega
+    if ctrl_pressed and boost_remaining > 0.0:
+        boost_remaining = max(0.0, boost_remaining - dt)
+        if boost_remaining <= 0.0:
+            boost_cooldown_remaining = config.BOOST_COOLDOWN
+    elif boost_cooldown_remaining > 0.0:
+        boost_cooldown_remaining = max(0.0, boost_cooldown_remaining - dt)
+        if boost_cooldown_remaining <= 0.0:
+            boost_remaining = config.BOOST_DURATION  # recarrega a reserva
 
     if not is_attacking:
         # Detectar transição de movimento para idle ou vice-versa
         if was_moving != is_moving:
             # Transição detectada - resetar animation_time para 0
             animation_time = 0.0
-        
+
         # Detectar mudança de direção e resetar animation_time se necessário
         if last_direction != current_direction:
             animation_time = 0.0
-        
+
         was_moving = is_moving
         last_direction = current_direction
-        
+
         if is_moving:
             # Animação de movimento: 8 frames por direção
-            animation_time += delta_time * config.ANIMATION_SPEED
+            animation_time += dt * config.ANIMATION_SPEED
             # Loop da animação (0 a 8 frames)
             animation_time = animation_time % config.SPRITE_SHEET_COLS
         else:
             # Animação idle: continuar animando quando parado
             # Velocidade de animação idle (um pouco mais lenta que movimento)
             idle_animation_speed = config.ANIMATION_SPEED * 0.6  # 60% da velocidade de movimento
-            animation_time += delta_time * idle_animation_speed
+            animation_time += dt * idle_animation_speed
             # Número de colunas varia por direção na textura idle:
             # Linha 0 (cima/W): 4 colunas
             # Linhas 1-3 (direita, esquerda, baixo): 12 colunas cada
@@ -317,6 +355,12 @@ def update(window):
                 idle_cols = 12  # Linhas 1-3 (direita, esquerda, baixo): 12 colunas
             # Loop da animação idle (garantir que está no range 0 a idle_cols)
             animation_time = animation_time % idle_cols
+
+
+def _display_position():
+    """Posição para render: base + knockback (quando em feedback de dano)."""
+    kb = knockback if hit_feedback_until > 0.0 else (0.0, 0.0, 0.0)
+    return glm.vec3(position.x + kb[0], position.y + kb[1], position.z + kb[2])
 
 
 def render(modelMatrix_loc, cameraPos):
@@ -385,15 +429,22 @@ def render(modelMatrix_loc, cameraPos):
     # Marcar como sprite 2D (não recebe iluminação ambiente)
     if is_sprite_loc != -1:
         glUniform1i(is_sprite_loc, 1)  # true = sprite 2D (sem iluminação)
+    # Flash ao sofrer dano (igual aos inimigos): 1 no início, 0 no fim da duração
     sprite_hit_flash_loc = glGetUniformLocation(shader_id, 'spriteHitFlash')
+    now = glfw.get_time()
+    dur = config.HIT_FEEDBACK_DURATION
     if sprite_hit_flash_loc != -1:
-        glUniform1f(sprite_hit_flash_loc, 0.0)
+        if hit_feedback_until > 0.0:
+            t = max(0.0, (hit_feedback_until - now) / dur)
+            glUniform1f(sprite_hit_flash_loc, t)
+        else:
+            glUniform1f(sprite_hit_flash_loc, 0.0)
     
     # Matriz de modelo com billboarding cilíndrico
     # O sprite rotaciona apenas no eixo Y para sempre olhar para a câmera
     # no plano horizontal (XZ), mantendo-se sempre "em pé"
     # Não rotaciona nos eixos X ou Z (billboarding cilíndrico vs esférico)
-    modelMatrix = resources.calculateBillboardMatrix(position, cameraPos)
+    modelMatrix = resources.calculateBillboardMatrix(_display_position(), cameraPos)
     glUniformMatrix4fv(modelMatrix_loc, 1, GL_FALSE, glm.value_ptr(modelMatrix))
     glDrawArrays(GL_TRIANGLES, 0, playerMesh[1])
 
@@ -410,10 +461,69 @@ def get_hp():
     return (hp, config.PLAYER_MAX_HP)
 
 
-def take_damage(amount):
-    """Reduz a vida do jogador. Chamado quando o inimigo acerta o ataque."""
-    global hp
+def get_stamina_fill():
+    """
+    Retorna o preenchimento da barra de estamina/boost (0.0 a 1.0) para a HUD.
+    - Em boost: a barra drena (1 -> 0) conforme boost_remaining.
+    - Em cooldown: a barra recarrega (0 -> 1) conforme o tempo volta.
+    - Pronto: barra cheia (1.0).
+    """
+    if boost_remaining > 0.0:
+        return boost_remaining / config.BOOST_DURATION
+    if boost_cooldown_remaining > 0.0:
+        return 1.0 - (boost_cooldown_remaining / config.BOOST_COOLDOWN)
+    return 1.0
+
+
+def take_damage(amount, knockback_direction=None):
+    """
+    Reduz a vida do jogador. Chamado quando o inimigo ou flecha acerta.
+    knockback_direction: (dx, dz) no plano XZ, opcional. Direção para onde o jogador
+    é empurrado visualmente (ex.: do inimigo para o jogador, ou velocidade da flecha).
+    Ativa o mesmo feedback visual dos inimigos: flash branco + knockback.
+    """
+    global hp, hit_feedback_until, knockback_initial, knockback
     hp = max(0, hp - amount)
+    hit_feedback_until = glfw.get_time() + config.HIT_FEEDBACK_DURATION
+    if knockback_direction is not None and (knockback_direction[0] != 0.0 or knockback_direction[1] != 0.0):
+        dx, dz = knockback_direction[0], knockback_direction[1]
+        L = math.sqrt(dx * dx + dz * dz)
+        if L > 1e-6:
+            dx /= L
+            dz /= L
+        d = config.HIT_KNOCKBACK_DISTANCE
+        knockback_initial = (dx * d, 0.0, dz * d)
+        knockback = (dx * d, 0.0, dz * d)
+    else:
+        knockback_initial = (0.0, 0.0, 0.0)
+        knockback = (0.0, 0.0, 0.0)
+
+
+def reset():
+    """
+    Reinicia o jogador: posição inicial, vida cheia e estados de animação/ataque.
+    Chamado quando o jogo reinicia (vida zerada).
+    """
+    global position, hp, animation_time, current_direction, last_direction
+    global is_moving, is_attacking, attack_animation_time, attack_direction, attack_cooldown_remaining
+    global was_pressing_space, was_moving, boost_remaining, boost_cooldown_remaining
+    global hit_feedback_until, knockback_initial, knockback
+    position = glm.vec3(*config.INITIAL_POSITION)
+    hp = config.PLAYER_MAX_HP
+    animation_time = 0.0
+    current_direction = 3
+    last_direction = 3
+    is_moving = False
+    is_attacking = False
+    attack_animation_time = 0.0
+    attack_cooldown_remaining = 0.0
+    was_pressing_space = False
+    was_moving = False
+    boost_remaining = config.BOOST_DURATION
+    boost_cooldown_remaining = 0.0
+    hit_feedback_until = 0.0
+    knockback_initial = (0.0, 0.0, 0.0)
+    knockback = (0.0, 0.0, 0.0)
 
 
 def get_attack_hitbox():

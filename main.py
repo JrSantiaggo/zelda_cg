@@ -22,6 +22,7 @@ import render
 # ============================================================================
 resolution = [config.WINDOW_WIDTH, config.WINDOW_HEIGHT]
 myShaderId = 0
+_last_frame_time = 0.0  # Para delta time (frame-rate independent)
 
 # ============================================================================
 # FUNÇÕES DE INICIALIZAÇÃO
@@ -44,10 +45,14 @@ def init():
 
     here = os.path.dirname(os.path.abspath(__file__))
     
-    # Carregar shaders (compartilhados por todos os objetos)
+    # Carregar shaders (principal e depth para shadow mapping)
     myShaderId = resources.loadShaders(
         os.path.join(here, config.VERTEX_SHADER_FILE),
-        os.path.join(here, config.FRAGMENT_SHADER_FILE)
+        os.path.join(here, config.FRAGMENT_SHADER_FILE),
+    )
+    depthShaderId = resources.loadShaders(
+        os.path.join(here, config.DEPTH_VERTEX_SHADER_FILE),
+        os.path.join(here, config.DEPTH_FRAGMENT_SHADER_FILE),
     )
     
     # Inicializar recursos dos módulos
@@ -58,7 +63,7 @@ def init():
     map.init(geometry)
     enemies.init(geometry)  # após map.init (usa getRampHeightAt / getTilePropertiesAt)
     archer.init(geometry)   # arqueiros (separado; futuramente flechas)
-    render.init(geometry)   # HUD (barra de vida)
+    render.init(geometry, depthShaderId)  # HUD e FBO/textura de shadow map
 
 # ============================================================================
 # FUNÇÕES DO SISTEMA (UPDATE E CALLBACKS)
@@ -67,10 +72,27 @@ def init():
 def update(window):
     """
     Atualiza a lógica do jogo (chama updates de cada sistema).
+    Usa delta time para ser independente da taxa de quadros.
+    Se a vida do jogador chegar a zero, reinicia: player na posição inicial e inimigos respawnam.
     """
-    player.update(window)
-    enemies.update(window)
-    archer.update(window)
+    global _last_frame_time
+    now = glfw.get_time()
+    if _last_frame_time > 0.0:
+        delta_time = now - _last_frame_time
+        delta_time = max(0.0001, min(0.1, delta_time))  # Limitar para evitar saltos (ex.: ao voltar do debug)
+    else:
+        delta_time = 0.0
+    _last_frame_time = now
+
+    player.update(window, delta_time)
+    enemies.update(delta_time)
+    archer.update(delta_time)
+
+    # Vida zerada: reinicia o jogo (player no começo, inimigos nascem de novo)
+    if player.get_hp()[0] <= 0:
+        player.reset()
+        enemies.respawn()
+        archer.respawn()
 
 # Função de tratamento de evento (Callback Function) de alteração do tamanho da janela
 def updateWindowSize(window, width, height):

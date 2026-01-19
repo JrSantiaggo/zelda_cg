@@ -3,8 +3,8 @@
 # ============================================================================
 
 # Resolução inicial da janela (largura, altura) em pixels
-WINDOW_WIDTH = 1800
-WINDOW_HEIGHT = 1000
+WINDOW_WIDTH = 1920
+WINDOW_HEIGHT = 1080
 
 # Título da janela
 WINDOW_TITLE = "OpenGL moderno"
@@ -49,9 +49,9 @@ PLAYER_MAX_HP = 15
 # CONFIGURAÇÕES DE MOVIMENTO/INPUT
 # ============================================================================
 
-# Velocidade de movimento do jogador (tiles por frame)
-# ~0.05 tiles/frame = movimento suave, ~20 frames para atravessar 1 tile
-MOVEMENT_SPEED = 0.45
+# Velocidade de movimento do jogador (tiles por segundo; multiplicada por delta_time)
+# 9.0 ≈ 0.15/frame a 60fps; garante o mesmo ritmo em qualquer taxa de quadros
+MOVEMENT_SPEED = 5.0
 
 # Configurações de animação do sprite sheet
 SPRITE_SHEET_ROWS = 4      # Número de linhas (direções)
@@ -66,8 +66,14 @@ ATTACK_FRAMES = 8         # Número de frames da animação de ataque (deve bate
 
 # Hitbox de ataque (espada) — retângulo no plano XZ, direcional
 ATTACK_HITBOX_LENGTH = 0.9   # Distância da espada na direção do ataque (tiles)
+
 ATTACK_HITBOX_WIDTH = 0.5    # Largura perpendicular (tiles)
-ATTACK_HITBOX_PLAYER_FRONT = 0.5  # Metade da largura do jogador; hitbox começa na “borda” do sprite
+ATTACK_HITBOX_PLAYER_FRONT = 0.5  # Metade da largura do jogador; hitbox começa na "borda" do sprite
+
+# Boost (Ctrl): velocidade aumentada por até 5 s, depois 4 s de cooldown
+BOOST_DURATION = 5.0         # Duração máxima do boost em segundos
+BOOST_COOLDOWN = 4.0         # Cooldown em segundos após o boost terminar
+BOOST_SPEED_MULTIPLIER = 1.5 # Multiplicador da velocidade durante o boost (2x = o dobro)
 
 
 # ============================================================================
@@ -123,8 +129,8 @@ ARCHER_OBJECT_SIZE_Y = OBJECT_SIZE_Y   # Metade da altura
 # Se player chega à metade da distância do spot, arqueiro foge.
 ARCHER_FLEE_DISTANCE = 3.0             # Metade do spot (6/2); abaixo disso o arqueiro foge
 ARCHER_SHOOT_COOLDOWN = 2.0            # Segundos entre um tiro e outro
-ARCHER_FLEE_SPEED = 0.012              # Velocidade ao fugir (menor que o player)
-ARCHER_ARROW_SPEED = 0.1               # Velocidade da flecha (tiles por frame)
+ARCHER_FLEE_SPEED = 3.0              # Velocidade ao fugir em tiles/segundo (× delta_time)
+ARCHER_ARROW_SPEED = 6.0              # Velocidade da flecha em tiles/segundo (× delta_time)
 ARCHER_ARROW_MAX_DIST = 15.0           # Flecha desaparece além desta distância do spawn
 # Flecha: texture/errow/Arrow.png; dano = ENEMY_ATTACK_DAMAGE
 ARROW_TEXTURE = "texture/errow/Arrow.png"
@@ -149,7 +155,7 @@ ENEMY_DETECTION_HALF_EXTENT = 6.0   # Raio do círculo de detecção e da luz sp
 # Luz spot ao redor do jogador: fora do spot o mapa fica mais escuro
 # Aumentar deixa as áreas longe do jogador mais claras (ex.: 0.4 = 40%, 0.5 = 50%)
 SPOTLIGHT_DARK_FACTOR = 0.4        # Iluminação fora do spot (0.4 = 40%; era 0.25)
-ENEMY_MOVEMENT_SPEED = 0.02         # Velocidade ao seguir o jogador (tiles por frame), um pouco mais lento que o player
+ENEMY_MOVEMENT_SPEED = 1.2          # Velocidade ao seguir o jogador (tiles por segundo; × delta_time)
 
 # Ataque do inimigo ao jogador: ao encostar (alcance de hit), para e ataca; 2 s entre ataques
 ENEMY_ATTACK_RANGE = 0.5            # Distância em XZ para considerar "ao alcance" (1 tile)
@@ -162,6 +168,17 @@ PLATFORM_TEXTURE = "texture/wood/Wood084A_2K-JPG_Color.jpg"
 # Nomes dos arquivos de shaders (devem estar na mesma pasta que main.py)
 VERTEX_SHADER_FILE = "vertexShader.glsl"
 FRAGMENT_SHADER_FILE = "fragmentShader.glsl"
+DEPTH_VERTEX_SHADER_FILE = "depthVertexShader.glsl"
+DEPTH_FRAGMENT_SHADER_FILE = "depthFragmentShader.glsl"
+
+# Shadow mapping (leve)
+SHADOW_MAPPING_ENABLED = False   # Ativa ou desativa shadow mapping (False = sem sombras)
+SHADOW_MAP_SIZE = 1024          # Resolução da textura de profundidade
+SHADOW_BIAS = 0.002             # Bias para reduzir acne (offset na comparação de profundidade)
+SHADOW_STRENGTH = 0.65          # Escurecimento em área de sombra (0=nenhum, 1=preto)
+SHADOW_ORTHO_SIZE = 35.0        # Metade do tamanho da orto (XZ) da luz direcional
+SHADOW_NEAR = 1.0               # Near do frustum orto da luz
+SHADOW_FAR = 80.0               # Far do frustum orto da luz
 
 
 # ============================================================================
